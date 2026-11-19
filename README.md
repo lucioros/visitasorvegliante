@@ -16,7 +16,7 @@ App per prenotare le uscite in servizio con il sorvegliante di circoscrizione du
 
 **Amministratore** (pulsante ⚙︎ Gestione)
 - **Giorni**: aggiunge i giorni della visita e indica per ogni mattina/pomeriggio orario, luogo, se escono il sorvegliante e la moglie e quanti appuntamenti può prendere ciascuno
-- **Eventi**: adunanza con i pionieri regolari, adunanza con anziani e servitori di ministero, mezza giornata libera o altri eventi, per mattina, pomeriggio, tutto il giorno o sera. Si indica chi è impegnato (sorvegliante, moglie o entrambi) e in quelle mezze giornate non si possono prendere appuntamenti con lui/lei
+- **Eventi**: adunanza con i pionieri regolari, adunanza con anziani e servitori di ministero, mezza giornata libera o altri eventi, per mattina, pomeriggio, tutto il giorno o sera. Si indica chi partecipa. Gli eventi compaiono nel programma e nel PDF; gli appuntamenti dipendono solo dalla casella “esce” (per la mezza giornata libera la spunta viene tolta automaticamente)
 - **Fratelli**: importa l'elenco dall'app *Gruppi di servizio* oppure lo scrive a mano, aggiunge o corregge i numeri di telefono (anche importandoli da un export di Hourglass, letto solo sul dispositivo), azzera un PIN e nomina altri amministratori
 - **Riepilogo**: programma completo con eventi, telefoni, motivi e studi, e **PDF degli appuntamenti** in una pagina A4 verticale (un riquadro per il sorvegliante e uno per la moglie) da scaricare, stampare o condividere, da copiare o mandare su WhatsApp al sorvegliante. Mostra anche chi non ha ancora prenotato
 - **Visite**: dati del sorvegliante e della moglie (nome e telefono), apertura e chiusura delle prenotazioni, creazione di una **nuova visita**. La precedente va nello storico; può copiare orari, luoghi ed eventi

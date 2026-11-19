@@ -193,7 +193,7 @@ function normalize(d){
       if(!s){day.slots[k]={orario:'',luogo:'',S:{on:false,cap:cs},M:{on:false,cap:cm}};return;}
       if(!s.S){ // formato della prima versione
         if(!s.on&&s.motivo&&!v.eventi.some(e=>e.date===day.date&&e.quando===k))v.eventi.push({id:'m'+day.date+k,date:day.date,quando:k,tipo:'altro',titolo:s.motivo,chi:['S','M']});
-        s.S={on:!!s.on||!!s.motivo,cap:s.cap??cs}; s.M={on:false,cap:cm}; delete s.on; delete s.cap; delete s.motivo;
+        s.S={on:!!s.on,cap:s.cap??cs}; s.M={on:false,cap:cm}; delete s.on; delete s.cap; delete s.motivo;
       }
       if(!s.M)s.M={on:false,cap:cm};
     });});
@@ -212,7 +212,7 @@ const userTel=(d,b)=>b.tel||d.users.find(u=>u.id===b.userId)?.tel||'';
 const persList=v=>v.conMoglie?PERS:['S'];
 const blockingEvent=(v,date,k,p)=>v.eventi.find(e=>e.date===date&&(e.quando===k||e.quando==='G')&&(e.chi||[]).includes(p));
 function persOn(v,day,k,p){const s=day?.slots?.[k];if(!s||!s[p]?.on)return false;return p==='S'||!!v.conMoglie;}
-const available=(v,day,k,p)=>persOn(v,day,k,p)&&!blockingEvent(v,day.date,k,p);
+const available=(v,day,k,p)=>persOn(v,day,k,p); // decide solo la casella "esce": gli eventi sono informativi
 const conLabel=(v,p)=>p==='M'?`Con la moglie del sorvegliante${v.moglie?' ('+v.moglie+')':''}`:`Con il sorvegliante${v.sorvegliante?' ('+v.sorvegliante+')':''}`;
 const conShort=p=>p==='M'?'moglie del sorvegliante':'sorvegliante';
 const chiText=e=>{const c=e.chi||[];return c.length===2?'Sorvegliante e moglie':c[0]==='M'?'Moglie del sorvegliante':c[0]==='S'?'Sorvegliante':'';};
@@ -463,7 +463,6 @@ function canBook(d,userId,date,k,p,asAdmin){
   const v=V(d); if(!v)return'Nessuna visita attiva';
   const day=v.days.find(x=>x.date===date);
   if(!persOn(v,day,k,p))return'Questa mezza giornata non è disponibile';
-  const ev=blockingEvent(v,date,k,p); if(ev)return'Non disponibile: '+evTitle(ev);
   if(!asAdmin){if(!v.aperto)return'Le prenotazioni sono chiuse';if(date<todayStr())return'Questo giorno è già passato';}
   if(slotBookings(v,date,k).some(b=>b.userId===userId))return'Hai già una prenotazione in questa mezza giornata';
   if(slotBookings(v,date,k,p).length>=persCap(d,day.slots[k],p))return'Posti esauriti: qualcuno ha appena prenotato';
@@ -608,8 +607,8 @@ function renderHome(){
     for(const[k,label]of SLOTS){
       const s=day.slots?.[k]; if(!s)continue;
       const evs=v.eventi.filter(e=>e.date===day.date&&e.quando===k);
-      const ps=persList(v).map(p=>({p,on:persOn(v,day,k,p),ev:blockingEvent(v,day.date,k,p)}));
-      if(!ps.some(x=>x.on&&!x.ev)){
+      const ps=persList(v).map(p=>({p,on:persOn(v,day,k,p)}));
+      if(!ps.some(x=>x.on)){
         h+=`<div class="slot off"><div class="top"><span class="name">${label}</span><span class="pill off">Nessun appuntamento</span></div>${evs.map(eventHtml).join('')}</div>`;continue;}
       const isMine=slotBookings(v,day.date,k).some(b=>b.userId===me.id);
       h+=`<div class="slot${isMine?' mine':''}"><div class="top"><span class="name">${label}${s.orario?' · '+esc(s.orario):''}</span></div>`;
@@ -617,7 +616,7 @@ function renderHome(){
       if(s.info)h+=`<p class="muted">${esc(s.info)}</p>`;
       h+=evs.map(eventHtml).join('');
       for(const x of ps){
-        if(!x.on||x.ev){ if(v.conMoglie)h+=`<p class="muted" style="margin-top:10px">${esc(conLabel(v,x.p))}: ${x.ev?'impegnato · '+esc(evTitle(x.ev)):'nessun appuntamento'}</p>`; continue; }
+        if(!x.on){ if(v.conMoglie)h+=`<p class="muted" style="margin-top:10px">${esc(conLabel(v,x.p))}: nessun appuntamento</p>`; continue; }
         const list=slotBookings(v,day.date,k,x.p),cap=persCap(d,s,x.p),free=cap-list.length;
         h+=`<div class="pblock"><div class="top"><b style="font-size:15px">${esc(conLabel(v,x.p))}</b>${free<=0?'<span class="pill full">Completo</span>':`<span class="pill free">${free===1?'1 libero':free+' liberi'}</span>`}</div>`;
         const show=st.mostraNomi||adm;
@@ -675,7 +674,7 @@ function admDays(){
       <label>Note (facoltative)</label><input value="${esc(s.info||'')}" placeholder="es. testimonianza pubblica" oninput="dd(${i},'${k}','info',this.value)">`;
       for(const p of persList(v)){const ps=s[p]||{},n=slotBookings(v,day.date,k,p).length,ev=blockingEvent(v,day.date,k,p);
         h+=`<label class="chk" style="margin-top:10px"><input type="checkbox" ${ps.on?'checked':''} onchange="dd(${i},'${k}','${p}.on',this.checked)">${p==='S'?'Il sorvegliante esce':'La moglie esce'}${n?` <span class="pill" style="margin-left:6px">${n} prenot.</span>`:''}</label>
-        ${ev?`<p class="muted" style="margin:0 0 4px 30px">Bloccato da: ${esc(evTitle(ev))}</p>`:''}
+        ${ev?`<p class="muted" style="margin:0 0 4px 30px">Evento: ${esc(evTitle(ev))}</p>`:''}
         ${ps.on?`<div style="margin-left:30px"><label style="margin-top:2px">Appuntamenti ${p==='S'?'con il sorvegliante':'con la moglie'}</label><input type="number" min="1" max="20" value="${esc(ps.cap??(p==='S'?d.settings.capDefault:d.settings.capMoglie))}" oninput="dd(${i},'${k}','${p}.cap',this.value)"></div>`:''}`;}
       v.eventi.filter(e=>e.date===day.date&&e.quando===k).forEach(e=>h+=eventHtml(e));
       h+=`</div>`;}
@@ -723,12 +722,12 @@ function admEvents(){
   const f=S.evForm=S.evForm||evDefault(v), ds=sortedDays(v);
   const evs=[...v.eventi].sort((a,b)=>(a.date+QUANDO.findIndex(x=>x[0]===a.quando)).localeCompare(b.date+QUANDO.findIndex(x=>x[0]===b.quando)));
   let h=`<div class="card"><h2>${f.editId?'Modifica evento':'Aggiungi un evento'}</h2>
-    <p class="muted">Nelle mezze giornate di un evento non si possono prendere appuntamenti con chi è impegnato. Gli eventi della sera compaiono solo nel programma.</p>
+    <p class="muted">Gli eventi compaiono nel programma e nel PDF. Gli appuntamenti dipendono solo dalla casella “esce” nella scheda Giorni: per la <b>mezza giornata libera</b> la spunta viene tolta automaticamente.</p>
     <label>Tipo</label><select onchange="evTipo(this.value)">${EVENTI.map(([k,l])=>`<option value="${k}" ${f.tipo===k?'selected':''}>${l}</option>`).join('')}</select>
     <label>${f.tipo==='altro'?'Descrizione':'Descrizione (facoltativa, se diversa)'}</label><input value="${esc(f.titolo)}" placeholder="${f.tipo==='altro'?'es. Visita ai fratelli anziani':esc(evTitle({tipo:f.tipo}))}" oninput="S.evForm.titolo=this.value">
     <div class="row2"><div><label>Giorno</label>${ds.length?`<select onchange="S.evForm.date=this.value">${ds.map(x=>`<option value="${x.date}" ${f.date===x.date?'selected':''}>${esc(fmtDay(x.date,{weekday:'short',day:'numeric',month:'short'}))}</option>`).join('')}</select>`:`<input type="date" value="${esc(f.date)}" onchange="S.evForm.date=this.value">`}</div>
     <div><label>Quando</label><select onchange="S.evForm.quando=this.value">${QUANDO.map(([k,l])=>`<option value="${k}" ${f.quando===k?'selected':''}>${l}</option>`).join('')}</select></div></div>
-    <label>Chi è impegnato</label>
+    <label>Chi partecipa</label>
     <label class="chk"><input type="checkbox" ${f.chi.includes('S')?'checked':''} onchange="evChi('S',this.checked)"> Sorvegliante</label>
     ${v.conMoglie?`<label class="chk"><input type="checkbox" ${f.chi.includes('M')?'checked':''} onchange="evChi('M',this.checked)"> Moglie del sorvegliante</label>`:''}
     <div class="row2"><div><label>Orario</label><input value="${esc(f.orario)}" placeholder="es. 10:00" oninput="S.evForm.orario=this.value"></div>
@@ -751,15 +750,16 @@ async function saveEvent(){
   const f=S.evForm,v=V();
   if(!f.date)return toast('Scegli il giorno','err');
   if(f.tipo==='altro'&&!f.titolo.trim())return toast('Scrivi la descrizione dell\'evento','err');
-  if(!f.chi.length&&f.quando!=='E')return toast('Indica chi è impegnato','err');
+  if(!f.chi.length)return toast('Indica chi partecipa','err');
   const ev={id:f.editId||uid(),date:f.date,quando:f.quando,tipo:f.tipo,titolo:f.titolo.trim(),chi:[...f.chi],orario:f.orario.trim(),luogo:f.luogo.trim(),note:f.note.trim()};
-  const test=Object.assign({},v,{eventi:v.eventi.filter(x=>x.id!==ev.id).concat(ev)}), valid=validKeys(test);
+  const offSlots=(vv)=>{if(ev.tipo!=='libera'||ev.quando==='E')return;(ev.quando==='G'?['M','P']:[ev.quando]).forEach(k=>{const day=vv.days.find(x=>x.date===ev.date);const sl=day?.slots?.[k];if(sl)ev.chi.forEach(p=>{if(sl[p])sl[p].on=false;});});};
+  const test=Object.assign({},v,{days:structuredClone(v.days),eventi:v.eventi.filter(x=>x.id!==ev.id).concat(ev)}); offSlots(test); const valid=validKeys(test);
   const lost=v.bookings.filter(b=>!valid.has(bKey(b)));
-  if(lost.length&&!confirm(`In questa mezza giornata ci sono ${lost.length} prenotazioni (${lost.map(b=>userName(S.data,b)).join(', ')}) che verranno cancellate. Continuare?`))return;
+  if(lost.length&&!confirm(`Con la mezza giornata libera verranno cancellate ${lost.length===1?'1 prenotazione':lost.length+' prenotazioni'} (${lost.map(b=>userName(S.data,b)).join(', ')}). Continuare?`))return;
   const vid=S.data.attiva;
   if(await mutate((f.editId?'Modificato':'Aggiunto')+' evento: '+evTitle(ev),d=>{const vv=d.visite.find(x=>x.id===vid);if(!vv)return'Visita non trovata';
-    vv.eventi=vv.eventi.filter(x=>x.id!==ev.id).concat(ev);const ok=validKeys(vv);vv.bookings=vv.bookings.filter(b=>ok.has(bKey(b)));})){
-    S.evForm=Object.assign(evDefault(V()),{date:ev.date});render();toast(f.editId?'Evento salvato ✓':'Evento aggiunto ✓');}
+    vv.eventi=vv.eventi.filter(x=>x.id!==ev.id).concat(ev);offSlots(vv);const ok=validKeys(vv);vv.bookings=vv.bookings.filter(b=>ok.has(bKey(b)));})){
+    S.evForm=Object.assign(evDefault(V()),{date:ev.date});render();toast((f.editId?'Evento salvato ✓':'Evento aggiunto ✓')+(ev.tipo==='libera'&&ev.quando!=='E'?' Tolta la spunta “esce” in quella mezza giornata':''));}
 }
 async function delEvent(id){const e=V().eventi.find(x=>x.id===id);if(!e||!confirm(`Eliminare “${evTitle(e)}” di ${fmtDay(e.date)}?`))return;
   const vid=S.data.attiva;
