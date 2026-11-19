@@ -942,8 +942,8 @@ async function makePdf(vid){
   try{
     await loadJsPdf();
     const d=S.data, v=d.visite.find(x=>x.id===(vid||d.attiva)); if(!v)throw new Error('Nessuna visita');
-    const {jsPDF}=window.jspdf, doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-    const W=297,H=210,MX=10,MT=10,GAP=6, PT=0.3528;
+    const {jsPDF}=window.jspdf, doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,H=297,MX=9,MT=10,GAP=5, PT=0.3528;
     const COL={pri:[31,78,95],pri2:[43,108,130],day:[230,238,242],ink:[28,38,48],muted:[102,114,126],ev:[154,91,0]};
     const pers=persList(v), cols=pers.map(p=>({p,head:p==='S'?'Sorvegliante'+(v.sorvegliante?': '+v.sorvegliante:''):'Moglie del sorvegliante'+(v.moglie?': '+v.moglie:''),tel:p==='S'?v.telSorv:v.telMoglie,lines:pdfColumn(d,v,p)}));
     // intestazione
@@ -954,7 +954,7 @@ async function makePdf(vid){
     doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(...COL.ink);
     const sub=pdfRange(v)+(d.settings.congregazione?'  -  '+d.settings.congregazione:'');
     doc.text(sub,W/2,MT+tf*PT+7,{align:'center'});
-    const top=MT+tf*PT+12, boxH=H-top-MX, boxW=(W-2*MX-GAP*(cols.length-1))/cols.length, HEAD=9, PAD=3;
+    const top=MT+tf*PT+12, boxH=H-top-MX, boxW=(W-2*MX-GAP*(cols.length-1))/cols.length, HEAD=cols.some(c=>c.tel)?13:9, PAD=2.6;
     // misura e adatta la dimensione del testo perché tutto stia in una pagina
     const style={day:['bold',1.05,COL.ink],slot:['bold',1,COL.pri2],item:['normal',1,COL.ink],sub:['italic',.92,COL.muted],none:['italic',.92,COL.muted],ev:['bolditalic',.95,COL.ev]};
     const indent={day:0,slot:1,item:4,sub:7,none:4,ev:1};
@@ -970,9 +970,10 @@ async function makePdf(vid){
       const x=MX+i*(boxW+GAP);
       doc.setDrawColor(...COL.pri);doc.setLineWidth(.5);doc.roundedRect(x,top,boxW,boxH,2.5,2.5,'S');
       doc.setFillColor(...COL.pri);doc.roundedRect(x,top,boxW,HEAD,2.5,2.5,'F');doc.rect(x,top+HEAD-3,boxW,3,'F');
-      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(12);
-      doc.text(c.head,x+PAD,top+HEAD/2+12*PT*.35);
-      if(c.tel){doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text('tel. '+c.tel,x+boxW-PAD,top+HEAD/2+10*PT*.35,{align:'right'});}
+      doc.setTextColor(255);doc.setFont('helvetica','bold');let hf=11.5;doc.setFontSize(hf);
+      while(doc.getTextWidth(c.head)>boxW-2*PAD&&hf>7){hf-=.5;doc.setFontSize(hf);}
+      doc.text(c.head,x+PAD,top+(HEAD>9?5.6:HEAD/2+hf*PT*.35));
+      if(c.tel){doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.text('tel. '+c.tel,x+PAD,top+10.6);}
       const y0=top+HEAD+PAD;
       lay[i].out.forEach(({ln,y,wrap,lh,ind})=>{
         const[st,sc,color]=style[ln.t];
@@ -988,7 +989,7 @@ async function makePdf(vid){
     S.pdf={blob,file,name,url:URL.createObjectURL(blob)};
     const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
     S.sheet={mode:'info'};
-    $('#sheet').innerHTML=`<h2>PDF pronto</h2><p class="muted">${esc(name)} · una pagina A4 orizzontale${f<6?'<br>Il testo è piccolo perché gli appuntamenti sono tanti.':''}</p>
+    $('#sheet').innerHTML=`<h2>PDF pronto</h2><p class="muted">${esc(name)} · una pagina A4 verticale${f<6?'<br>Il testo è piccolo perché gli appuntamenti sono tanti.':''}</p>
       <a class="btn full" href="${S.pdf.url}" download="${esc(name)}">Scarica il PDF</a>
       ${canShare?'<button class="btn ok full" onclick="sharePdf()">Condividi (WhatsApp, email…)</button>':''}
       <a class="btn sec full" href="${S.pdf.url}" target="_blank" rel="noopener">Apri e stampa</a>
