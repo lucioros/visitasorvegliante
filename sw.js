@@ -1,6 +1,6 @@
 /* Service worker: rende l'app installabile e la apre anche con rete debole.
    I dati (dati.json e GitHub) NON vengono mai salvati in cache: sono sempre letti aggiornati. */
-const CACHE = 'visita-sorv-v2';
+const CACHE = 'visita-sorv-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon.png'];
 
 self.addEventListener('install', e => {

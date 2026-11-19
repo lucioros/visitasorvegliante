@@ -887,11 +887,117 @@ function admSummary(){
     <p class="muted">Sorvegliante: ${tot.S-free.S} su ${tot.S} posti${v.conMoglie?` · Moglie: ${tot.M-free.M} su ${tot.M} posti`:''}</p>
     <p class="muted">${MOTIVI.map(([k,l])=>`${l}: <b>${cnt[k]||0}</b>`).join(' · ')}</p>
     <pre class="mono" style="white-space:pre-wrap;margin-top:10px">${esc(txt)}</pre>
+    <button class="btn full" style="margin:6px 0 4px" onclick="makePdf()">📄 Crea il PDF degli appuntamenti</button>
     <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,V(),true))">Copia</button>
     <a class="btn sm ok" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a>
     <button class="btn sm sec" onclick="copy(visitText(S.data,V(),false))">Copia senza telefoni e dettagli</button></div></div>
     <div class="card"><h2>Non hanno ancora prenotato (${none.length})</h2>${none.length?`<p>${none.map(u=>esc(u.name)).join(', ')}</p>`:'<p class="muted">Tutti hanno prenotato.</p>'}</div>`;
 }
+
+/* --- PDF degli appuntamenti: una pagina, un riquadro per il sorvegliante e uno per la moglie --- */
+function loadJsPdf(){
+  if(window.jspdf)return Promise.resolve();
+  return new Promise((ok,ko)=>{const s=document.createElement('script');s.src='jspdf.umd.min.js';s.onload=ok;s.onerror=()=>ko(new Error('Non riesco a caricare il generatore di PDF. Controlla la connessione.'));document.head.appendChild(s);});
+}
+function pdfRange(v){
+  const ds=sortedDays(v); if(!ds.length)return'';
+  const a=parseDate(ds[0].date),b=parseDate(ds[ds.length-1].date);
+  const M=dt=>dt.toLocaleDateString('it-IT',{month:'long'}), g=n=>n===1?'1°':String(n);
+  const dal=n=>(n===8||n===11)?"dall'":'dal ', al=n=>(n===8||n===11)?"all'":'al ';
+  let s;
+  if(+a===+b)s=`il ${g(a.getDate())} ${M(a)} ${a.getFullYear()}`;
+  else if(a.getFullYear()!==b.getFullYear())s=`${dal(a.getDate())}${g(a.getDate())} ${M(a)} ${a.getFullYear()} ${al(b.getDate())}${g(b.getDate())} ${M(b)} ${b.getFullYear()}`;
+  else if(a.getMonth()!==b.getMonth())s=`${dal(a.getDate())}${g(a.getDate())} ${M(a)} ${al(b.getDate())}${g(b.getDate())} ${M(b)} ${b.getFullYear()}`;
+  else s=`${dal(a.getDate())}${g(a.getDate())} ${al(b.getDate())}${g(b.getDate())} ${M(b)} ${b.getFullYear()}`;
+  return 'Settimana di visita che va '+s;
+}
+function pdfTitle(v){const n=[v.sorvegliante,v.conMoglie?v.moglie:''].filter(Boolean);return 'Appuntamenti di servizio con '+(n.length?n.join(' e '):'il sorvegliante di circoscrizione');}
+function pdfColumn(d,v,p){ // righe del riquadro di una persona
+  const L=[];
+  for(const day of sortedDays(v)){
+    L.push({t:'day',s:fmtDay(day.date)});
+    let n=0;
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='G'&&(e.chi||[]).includes(p)).forEach(e=>{L.push({t:'ev',s:`Tutto il giorno: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
+    for(const[k,label]of SLOTS){
+      const s=day.slots[k]||{}, ev=v.eventi.filter(e=>e.date===day.date&&e.quando===k&&(e.chi||[]).includes(p));
+      ev.forEach(e=>{L.push({t:'ev',s:`${label}: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
+      if(!available(v,day,k,p))continue;
+      L.push({t:'slot',s:`${label}${s.orario?' ore '+s.orario:''}${s.luogo?' - '+s.luogo:''}`});n++;
+      const list=slotBookings(v,day.date,k,p);
+      if(!list.length)L.push({t:'none',s:'nessun appuntamento'});
+      list.forEach(b=>{
+        const tel=userTel(d,b), mot=(b.motivi||[]).map(motivoName).join(', ');
+        L.push({t:'item',s:`${userName(d,b)}${tel?'  tel. '+tel:''}${mot?'  ('+mot+')':''}`});
+        (b.studi||[]).forEach(x=>L.push({t:'sub',s:`Studio: ${x.pub}${x.lez?', lezione '+x.lez:''}${x.par?', paragrafo '+x.par:''}`}));
+        if(b.note)L.push({t:'sub',s:'Note: '+b.note});
+      });
+    }
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='E'&&(e.chi||[]).includes(p)).forEach(e=>{L.push({t:'ev',s:`Sera: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
+    if(!n)L.push({t:'none',s:'nessun appuntamento'});
+  }
+  return L;
+}
+async function makePdf(vid){
+  spin(true);
+  try{
+    await loadJsPdf();
+    const d=S.data, v=d.visite.find(x=>x.id===(vid||d.attiva)); if(!v)throw new Error('Nessuna visita');
+    const {jsPDF}=window.jspdf, doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297,H=210,MX=10,MT=10,GAP=6, PT=0.3528;
+    const COL={pri:[31,78,95],pri2:[43,108,130],day:[230,238,242],ink:[28,38,48],muted:[102,114,126],ev:[154,91,0]};
+    const pers=persList(v), cols=pers.map(p=>({p,head:p==='S'?'Sorvegliante'+(v.sorvegliante?': '+v.sorvegliante:''):'Moglie del sorvegliante'+(v.moglie?': '+v.moglie:''),tel:p==='S'?v.telSorv:v.telMoglie,lines:pdfColumn(d,v,p)}));
+    // intestazione
+    doc.setTextColor(...COL.pri);doc.setFont('helvetica','bold');
+    let tf=18; doc.setFontSize(tf); const title=pdfTitle(v);
+    while(doc.getTextWidth(title)>W-2*MX&&tf>11){tf-=.5;doc.setFontSize(tf);}
+    doc.text(title,W/2,MT+tf*PT,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(...COL.ink);
+    const sub=pdfRange(v)+(d.settings.congregazione?'  -  '+d.settings.congregazione:'');
+    doc.text(sub,W/2,MT+tf*PT+7,{align:'center'});
+    const top=MT+tf*PT+12, boxH=H-top-MX, boxW=(W-2*MX-GAP*(cols.length-1))/cols.length, HEAD=9, PAD=3;
+    // misura e adatta la dimensione del testo perché tutto stia in una pagina
+    const style={day:['bold',1.05,COL.ink],slot:['bold',1,COL.pri2],item:['normal',1,COL.ink],sub:['italic',.92,COL.muted],none:['italic',.92,COL.muted],ev:['bolditalic',.95,COL.ev]};
+    const indent={day:0,slot:1,item:4,sub:7,none:4,ev:1};
+    const before={day:2.2,slot:1.2,item:.3,sub:0,none:.3,ev:1};
+    function layout(c,f){ let y=0; const out=[];
+      for(const ln of c.lines){const[st,sc]=style[ln.t];doc.setFont('helvetica',st);doc.setFontSize(f*sc);
+        const lh=f*sc*PT*1.22, ind=indent[ln.t]*f*.18, wrap=doc.splitTextToSize((ln.t==='item'?'• ':'')+ln.s,boxW-2*PAD-ind);
+        y+=before[ln.t]*f*.18; out.push({ln,y,wrap,lh,ind}); y+=lh*wrap.length; }
+      return{out,h:y};}
+    let f=11, lay;
+    for(;f>=4;f-=.25){lay=cols.map(c=>layout(c,f));if(lay.every(l=>l.h<=boxH-HEAD-2*PAD))break;}
+    cols.forEach((c,i)=>{
+      const x=MX+i*(boxW+GAP);
+      doc.setDrawColor(...COL.pri);doc.setLineWidth(.5);doc.roundedRect(x,top,boxW,boxH,2.5,2.5,'S');
+      doc.setFillColor(...COL.pri);doc.roundedRect(x,top,boxW,HEAD,2.5,2.5,'F');doc.rect(x,top+HEAD-3,boxW,3,'F');
+      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(12);
+      doc.text(c.head,x+PAD,top+HEAD/2+12*PT*.35);
+      if(c.tel){doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text('tel. '+c.tel,x+boxW-PAD,top+HEAD/2+10*PT*.35,{align:'right'});}
+      const y0=top+HEAD+PAD;
+      lay[i].out.forEach(({ln,y,wrap,lh,ind})=>{
+        const[st,sc,color]=style[ln.t];
+        if(ln.t==='day'){doc.setFillColor(...COL.day);doc.rect(x+.6,y0+y-lh*.15,boxW-1.2,lh*wrap.length+lh*.1,'F');}
+        doc.setFont('helvetica',st);doc.setFontSize(f*sc);doc.setTextColor(...color);
+        wrap.forEach((w,j)=>doc.text(w,x+PAD+ind,y0+y+lh*j+lh*.72));
+      });
+    });
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...COL.muted);
+    doc.text('Aggiornato al '+new Date().toLocaleString('it-IT',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}),W-MX,H-4,{align:'right'});
+    const name='appuntamenti-'+(v.nome||'visita').toLowerCase().replace(/[^a-z0-9àèéìòù]+/gi,'-').replace(/^-|-$/g,'')+'.pdf';
+    const blob=doc.output('blob'), file=new File([blob],name,{type:'application/pdf'});
+    S.pdf={blob,file,name,url:URL.createObjectURL(blob)};
+    const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+    S.sheet={mode:'info'};
+    $('#sheet').innerHTML=`<h2>PDF pronto</h2><p class="muted">${esc(name)} · una pagina A4 orizzontale${f<6?'<br>Il testo è piccolo perché gli appuntamenti sono tanti.':''}</p>
+      <a class="btn full" href="${S.pdf.url}" download="${esc(name)}">Scarica il PDF</a>
+      ${canShare?'<button class="btn ok full" onclick="sharePdf()">Condividi (WhatsApp, email…)</button>':''}
+      <a class="btn sec full" href="${S.pdf.url}" target="_blank" rel="noopener">Apri e stampa</a>
+      <button class="btn sec full" onclick="closeSheet()">Chiudi</button>`;
+    $('#sheetbg').classList.add('show');
+  }catch(e){toast(e.message||String(e),'err');}
+  finally{spin(false);}
+}
+async function sharePdf(){try{await navigator.share({files:[S.pdf.file],title:S.pdf.name});}catch(e){if(e.name!=='AbortError')toast('Condivisione non riuscita: usa “Scarica il PDF”','err');}}
 
 /* --- Visite: visita attiva (sorvegliante e moglie) e nuova visita --- */
 function admVisits(){
@@ -960,7 +1066,7 @@ function admHistory(){
       <span class="muted">${visitRange(v)}${v.sorvegliante?' · '+esc(v.sorvegliante):''} · ${v.bookings.length} appuntamenti</span></div>
       <button class="btn sm sec" onclick="S.histOpen=${open?'null':`'${v.id}'`};render()">${open?'Chiudi':'Apri'}</button></div>
       ${open?`<pre class="mono" style="white-space:pre-wrap;margin-top:10px">${esc(visitText(d,v,true))}</pre>
-      <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,S.data.visite.find(x=>x.id==='${v.id}'),true))">Copia</button>
+      <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,S.data.visite.find(x=>x.id==='${v.id}'),true))">Copia</button><button class="btn sm sec" onclick="makePdf('${v.id}')">PDF</button>
       ${act?'':`<button class="btn sm sec" onclick="activateVisit('${v.id}')">Rendi attiva</button><button class="btn sm danger" onclick="delVisit('${v.id}')">Elimina</button>`}</div>`:''}</div>`;});
   return h+`</div></div>`;
 }
