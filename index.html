@@ -342,7 +342,7 @@ function header(){
 }
 function unsavedOk(){return !S.draftDays||confirm('Ci sono modifiche ai giorni non salvate. Uscire comunque?');}
 function go(v){if(!unsavedOk())return;S.draftDays=null;S.imp=null;S.view=v;render();scrollTo(0,0);refresh(true);}
-function setTab(t){if(t!==S.tab&&!unsavedOk())return;S.draftDays=null;S.imp=null;S.tab=t;render();scrollTo(0,0);refresh(true);}
+function setTab(t){if(t!==S.tab&&!unsavedOk())return;S.draftDays=null;S.imp=null;S.hg=null;S.tab=t;render();scrollTo(0,0);refresh(true);}
 function render(){
   header();
   if(!S.data)return;
@@ -782,7 +782,7 @@ function admUsers(){
       vis.filter(p=>p.gruppo===g).forEach(p=>{h+=`<label class="chk"><input type="checkbox" ${p.already?'checked disabled':im.sel.has(p.gsId)?'checked':''} onchange="impSel('${p.gsId}',this.checked)">${esc(p.label)}${p.inatt?' <span class="tag">inattivo</span>':''}${p.already?' <span class="muted">&nbsp;già in elenco</span>':''}</label>`;});});
     h+=`<button class="btn full" ${nSel?'':'disabled'} onclick="impDo()">Importa ${nSel} nominativi</button><button class="btn sec full" onclick="S.imp=null;render()">Chiudi</button>`;
   }
-  h+=`</div><div class="card"><h2>Aggiungi a mano</h2><p class="muted">Un nome per riga.</p>
+  h+=`</div>${hgCard()}<div class="card"><h2>Aggiungi a mano</h2><p class="muted">Un nome per riga.</p>
     <textarea id="u_new" placeholder="Rossi Mario&#10;Bianchi Luca"></textarea><button class="btn full" onclick="addUsers()">Aggiungi</button></div>
     <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN. Il telefono lo inserisce chi prenota, oppure lo aggiungi tu con “Modifica”.</p><div class="list">
     ${users.map(u=>{const n=userBookings(v,u.id).length;return`<div class="it"><div class="grow"><b>${esc(u.name)}</b>${u.admin?' <span class="pill">Amministratore</span>':''}<br>
@@ -791,6 +791,47 @@ function admUsers(){
       ${u.pin?`<button class="btn sm sec" onclick="resetPin('${u.id}')">Azzera PIN</button>`:''}
       <button class="btn sm sec" onclick="toggleAdmin('${u.id}')">${u.admin?'Togli admin':'Rendi admin'}</button>
       <button class="btn sm danger" onclick="delUser('${u.id}')">Elimina</button>`}</div></div>`;}).join('')}</div></div>`;
+  return h;
+}
+
+/* --- Telefoni da un file esportato da Hourglass (letto solo sul dispositivo) --- */
+const normName=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+function hgKeys(f,m,l){const k=new Set();[[l,f],[f,l],[l,f,m],[f,m,l],[l,m,f]].forEach(a=>{const x=normName(a.filter(Boolean).join(' '));if(x)k.add(x);});return k;}
+function userKeys(u){const k=new Set([normName(u.name)]);if(u.cognome||u.nome){k.add(normName(u.cognome+' '+u.nome));k.add(normName(u.nome+' '+u.cognome));}
+  const w=normName(u.name).split(' ');if(w.length===2)k.add(w[1]+' '+w[0]);return k;}
+async function hgFile(file){
+  if(!file)return;
+  try{
+    const j=JSON.parse(await file.text());
+    const ppl=[...(j.publishers||[]),...(j.notPublishers||[])];
+    if(!ppl.length)throw new Error('Il file non sembra un export di Hourglass');
+    const idx=new Map(), dup=new Set();
+    ppl.forEach(p=>{const tel=String(p.cellphone||p.homephone||p.otherphone||'').trim();if(!tel)return;
+      hgKeys(p.firstname,p.middlename,p.lastname).forEach(k=>{if(idx.has(k)&&idx.get(k)!==tel)dup.add(k);idx.set(k,tel);});});
+    const matches=[],missing=[];
+    [...S.data.users].sort(byName).forEach(u=>{let tel=null;for(const k of userKeys(u))if(idx.has(k)&&!dup.has(k)){tel=idx.get(k);break;}
+      if(tel)matches.push({id:u.id,name:u.name,tel,old:u.tel||''});else if(!u.tel)missing.push(u.name);});
+    S.hg={matches,missing,over:false};
+  }catch(e){toast(e.message==='Unexpected token'?'File non valido':e.message,'err');S.hg=null;}
+  render();
+}
+async function hgApply(){
+  const pick=S.hg.matches.filter(m=>m.old!==m.tel&&(S.hg.over||!m.old));
+  if(!pick.length)return toast('Nessun numero da aggiornare','err');
+  if(await mutate(`Telefoni da Hourglass (${pick.length})`,d=>{pick.forEach(m=>{const u=d.users.find(x=>x.id===m.id);if(u)u.tel=m.tel;});}))
+    {S.hg=null;render();toast(`Aggiornati ${pick.length} numeri ✓`);}
+}
+function hgCard(){
+  const hg=S.hg;
+  let h=`<div class="card"><h2>Telefoni da Hourglass</h2>`;
+  if(!hg)return h+`<p class="muted">Scegli il file .json esportato da Hourglass: l'app prende solo nome, cognome e numero di telefono. Il file viene letto su questo dispositivo e non viene caricato da nessuna parte.</p>
+    <input type="file" accept=".json,application/json" onchange="hgFile(this.files[0])"></div>`;
+  const nNew=hg.matches.filter(m=>!m.old).length, nDiff=hg.matches.filter(m=>m.old&&m.old!==m.tel).length, n=hg.matches.filter(m=>m.old!==m.tel&&(hg.over||!m.old)).length;
+  h+=`<p><b>${hg.matches.length}</b> nomi trovati in Hourglass: <b>${nNew}</b> numeri nuovi${nDiff?`, <b>${nDiff}</b> diversi da quelli già salvati`:''}.</p>
+    ${nDiff?`<label class="chk"><input type="checkbox" ${hg.over?'checked':''} onchange="S.hg.over=this.checked;render()"> Sostituisci anche i numeri già presenti</label>`:''}
+    <div class="list" style="max-height:260px;overflow:auto;margin-top:8px">${hg.matches.map(m=>`<div class="it" style="padding:6px 0"><div class="grow">${esc(m.name)}<br><span class="muted">${esc(m.tel)}${m.old&&m.old!==m.tel?' (ora: '+esc(m.old)+')':m.old===m.tel?' (già uguale)':''}</span></div></div>`).join('')}</div>
+    ${hg.missing.length?`<p class="muted" style="margin-top:10px">Senza numero e non trovati in Hourglass (${hg.missing.length}): ${hg.missing.map(esc).join(', ')}</p>`:''}
+    <button class="btn full" ${n?'':'disabled'} onclick="hgApply()">Salva ${n} numeri</button><button class="btn sec full" onclick="S.hg=null;render()">Annulla</button></div>`;
   return h;
 }
 function impStart(){S.imp={step:'pw'};render();const pw=lsGet(LS_PW);if(pw)impLoad(pw,true);else setTimeout(()=>$('#imp_pw')?.focus(),50);}
