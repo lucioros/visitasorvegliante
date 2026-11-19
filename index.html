@@ -80,6 +80,8 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;word
 .spin div{width:38px;height:38px;border:4px solid #cfd8de;border-top-color:var(--pri);border-radius:50%;animation:r .8s linear infinite}
 @keyframes r{to{transform:rotate(360deg)}}
 .center{text-align:center}
+.ev{background:#fff7e6;border:1px solid #f3dfb5;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
+.pblock{border-top:1px dashed var(--line);margin-top:10px;padding-top:10px}
 .install{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--pri2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
 .install img{width:44px;height:44px;border-radius:10px;flex:none}
 .install .grow{flex:1;font-size:14px;line-height:1.3}
@@ -171,21 +173,52 @@ const motivoName=k=>(MOTIVI.find(x=>x[0]===k)||[,k])[1];
 const byName=(a,b)=>a.name.localeCompare(b.name,'it',{sensitivity:'base'});
 
 /* ---------- dati ---------- */
+const PERS=['S','M']; // S = sorvegliante, M = moglie del sorvegliante
+const EVENTI=[['pionieri','Adunanza con i pionieri regolari',['S','M']],['anziani','Adunanza con anziani e servitori di ministero',['S']],['libera','Mezza giornata libera',['S','M']],['altro','Altro evento',['S']]];
+const QUANDO=[['M','Mattina'],['P','Pomeriggio'],['G','Tutto il giorno'],['E','Sera']];
+const quandoName=k=>(QUANDO.find(x=>x[0]===k)||[,k])[1];
+const evTitle=e=>e.titolo||(EVENTI.find(x=>x[0]===e.tipo)||[,'Evento'])[1];
 function normalize(d){
-  d=d||{}; d.v=1;
-  d.settings=Object.assign({titolo:'Visita del sorvegliante di circoscrizione',congregazione:'',capDefault:2,maxPerUser:1,mostraNomi:true,gruppiUrl:GRUPPI_URL_DEFAULT},d.settings||{});
+  d=d||{}; d.v=2;
+  d.settings=Object.assign({titolo:'Visita del sorvegliante di circoscrizione',congregazione:'',capDefault:2,capMoglie:2,maxPerUser:1,mostraNomi:true,gruppiUrl:GRUPPI_URL_DEFAULT},d.settings||{});
   d.users=Array.isArray(d.users)?d.users:[];
   d.visite=Array.isArray(d.visite)?d.visite:[];
-  d.visite.forEach(v=>{v.days=v.days||[];v.bookings=v.bookings||[];if(v.aperto===undefined)v.aperto=true;});
+  const cs=d.settings.capDefault, cm=d.settings.capMoglie;
+  d.visite.forEach(v=>{
+    v.days=v.days||[]; v.bookings=v.bookings||[]; v.eventi=v.eventi||[];
+    if(v.aperto===undefined)v.aperto=true;
+    if(v.conMoglie===undefined)v.conMoglie=!!v.moglie;
+    v.days.forEach(day=>{day.slots=day.slots||{};SLOTS.forEach(([k])=>{
+      let s=day.slots[k];
+      if(!s){day.slots[k]={orario:'',luogo:'',S:{on:false,cap:cs},M:{on:false,cap:cm}};return;}
+      if(!s.S){ // formato della prima versione
+        if(!s.on&&s.motivo&&!v.eventi.some(e=>e.date===day.date&&e.quando===k))v.eventi.push({id:'m'+day.date+k,date:day.date,quando:k,tipo:'altro',titolo:s.motivo,chi:['S','M']});
+        s.S={on:!!s.on||!!s.motivo,cap:s.cap??cs}; s.M={on:false,cap:cm}; delete s.on; delete s.cap; delete s.motivo;
+      }
+      if(!s.M)s.M={on:false,cap:cm};
+    });});
+    v.bookings.forEach(b=>{if(!b.con)b.con='S';});
+  });
   if(!d.visite.some(v=>v.id===d.attiva)) d.attiva=d.visite.length?d.visite[d.visite.length-1].id:null;
   return d;
 }
 const V=d=>(d||S.data).visite.find(v=>v.id===(d||S.data).attiva)||null;
 const sortedDays=v=>[...(v?.days||[])].sort((a,b)=>a.date.localeCompare(b.date));
-const slotBookings=(v,date,k)=>v.bookings.filter(b=>b.date===date&&b.slot===k);
+const slotBookings=(v,date,k,p)=>v.bookings.filter(b=>b.date===date&&b.slot===k&&(!p||b.con===p));
 const userBookings=(v,id)=>v?v.bookings.filter(b=>b.userId===id):[];
-const slotCap=(d,s)=>Math.max(1,Number(s.cap??d.settings.capDefault)||1);
+const persCap=(d,s,p)=>Math.max(1,Number(s?.[p]?.cap??(p==='M'?d.settings.capMoglie:d.settings.capDefault))||1);
 const userName=(d,b)=>d.users.find(u=>u.id===b.userId)?.name||b.userName||'(non più in elenco)';
+const userTel=(d,b)=>b.tel||d.users.find(u=>u.id===b.userId)?.tel||'';
+const persList=v=>v.conMoglie?PERS:['S'];
+const blockingEvent=(v,date,k,p)=>v.eventi.find(e=>e.date===date&&(e.quando===k||e.quando==='G')&&(e.chi||[]).includes(p));
+function persOn(v,day,k,p){const s=day?.slots?.[k];if(!s||!s[p]?.on)return false;return p==='S'||!!v.conMoglie;}
+const available=(v,day,k,p)=>persOn(v,day,k,p)&&!blockingEvent(v,day.date,k,p);
+const conLabel=(v,p)=>p==='M'?`Con la moglie del sorvegliante${v.moglie?' ('+v.moglie+')':''}`:`Con il sorvegliante${v.sorvegliante?' ('+v.sorvegliante+')':''}`;
+const conShort=p=>p==='M'?'moglie del sorvegliante':'sorvegliante';
+const chiText=e=>{const c=e.chi||[];return c.length===2?'Sorvegliante e moglie':c[0]==='M'?'Moglie del sorvegliante':c[0]==='S'?'Sorvegliante':'';};
+function validKeys(v){const set=new Set();v.days.forEach(day=>SLOTS.forEach(([k])=>PERS.forEach(p=>{if(available(v,day,k,p))set.add(day.date+'|'+k+'|'+p);})));return set;}
+const bKey=b=>b.date+'|'+b.slot+'|'+(b.con||'S');
+const telOk=t=>String(t||'').replace(/\D/g,'').length>=6;
 function visitRange(v){const ds=sortedDays(v);if(!ds.length)return'nessun giorno';const a=ds[0].date,b=ds[ds.length-1].date;return a===b?fmtShort(a):fmtShort(a)+' – '+fmtShort(b);}
 
 /* ---------- archivio (GitHub o demo locale) ---------- */
@@ -350,6 +383,7 @@ function renderInit(){
     <label>Congregazione</label><input id="i_cong" placeholder="es. Congregazione Roma Centro">
     <label>Nome della prima visita</label><input id="i_vis" placeholder="es. Visita di dicembre 2026">
     <label>Nome del sorvegliante</label><input id="i_sorv" placeholder="es. Fratello Bianchi">
+    <label>Nome della moglie del sorvegliante (se si prendono appuntamenti anche con lei)</label><input id="i_mog" placeholder="es. Sorella Bianchi">
   </div>
   <div class="card"><h2>Password della congregazione</h2>
     <p class="muted">Cifra tutti i dati. La comunicherai ai fratelli insieme al link. Almeno 8 caratteri.</p>
@@ -382,7 +416,7 @@ async function doInit(){
     const id=uid(), vid=uid();
     const data=normalize({settings:{titolo:$('#i_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#i_cong').value.trim()},
       users:[{id,name,pin:await pinHash(id,pin),admin:true}],
-      visite:[{id:vid,nome:$('#i_vis').value.trim()||'Visita del sorvegliante',sorvegliante:$('#i_sorv').value.trim(),aperto:true,nota:'',creata:new Date().toISOString(),days:[],bookings:[]}],attiva:vid});
+      visite:[{id:vid,nome:$('#i_vis').value.trim()||'Visita del sorvegliante',sorvegliante:$('#i_sorv').value.trim(),moglie:$('#i_mog').value.trim(),conMoglie:!!$('#i_mog').value.trim(),eventi:[],aperto:true,nota:'',creata:new Date().toISOString(),days:[],bookings:[]}],attiva:vid});
     const salt=crypto.getRandomValues(new Uint8Array(16)), key=await deriveKey(pw,salt,ITER);
     const file={formato:FORMATO,v:1,kdf:{salt:toB64(salt),iter:ITER},dati:await encObj(key,data),token:tok?await encObj(key,tok):null,aggiornato:new Date().toISOString()};
     S.token=tok; S.sha=await putFile(file,null,'Visita sorvegliante: creato archivio',tok);
@@ -425,14 +459,14 @@ async function doLogin(){
 function logout(){if(!unsavedOk())return;S.ses=null;lsSet(LS_SES,null);S.user=null;S.view='home';S.draftDays=null;render();}
 
 /* ---------- regole di prenotazione ---------- */
-function canBook(d,userId,date,k,asAdmin){
+function canBook(d,userId,date,k,p,asAdmin){
   const v=V(d); if(!v)return'Nessuna visita attiva';
-  const s=v.days.find(x=>x.date===date)?.slots?.[k];
-  if(!s||!s.on)return'Questa mezza giornata non è disponibile';
+  const day=v.days.find(x=>x.date===date);
+  if(!persOn(v,day,k,p))return'Questa mezza giornata non è disponibile';
+  const ev=blockingEvent(v,date,k,p); if(ev)return'Non disponibile: '+evTitle(ev);
   if(!asAdmin){if(!v.aperto)return'Le prenotazioni sono chiuse';if(date<todayStr())return'Questo giorno è già passato';}
-  const list=slotBookings(v,date,k);
-  if(list.some(b=>b.userId===userId))return'Prenotazione già presente';
-  if(list.length>=slotCap(d,s))return'Posti esauriti: qualcuno ha appena prenotato';
+  if(slotBookings(v,date,k).some(b=>b.userId===userId))return'Hai già una prenotazione in questa mezza giornata';
+  if(slotBookings(v,date,k,p).length>=persCap(d,day.slots[k],p))return'Posti esauriti: qualcuno ha appena prenotato';
   const max=Number(d.settings.maxPerUser)||0;
   if(!asAdmin&&max>0&&userBookings(v,userId).length>=max)return max===1?'Puoi prenotare una sola uscita':`Puoi prenotare al massimo ${max} uscite`;
   return null;
@@ -440,7 +474,7 @@ function canBook(d,userId,date,k,asAdmin){
 async function unbook(id){
   const v=V(), b=v.bookings.find(x=>x.id===id); if(!b)return;
   const mine=b.userId===S.user.id; if(!mine&&!S.user.admin)return;
-  const nm=userName(S.data,b), q=`${fmtDay(b.date)} (${slotName(b.slot).toLowerCase()})`;
+  const nm=userName(S.data,b), q=`${fmtDay(b.date)} (${slotName(b.slot).toLowerCase()}, con ${b.con==='M'?'la moglie':'il sorvegliante'})`;
   if(!confirm(mine?`Annullare la tua prenotazione di ${q}?`:`Rimuovere ${nm} da ${q}?`))return;
   if(await mutate(`Annullata ${b.date} ${slotName(b.slot)}: ${nm}`,d=>{
     const vv=V(d),i=vv.bookings.findIndex(x=>x.id===id); if(i<0)return'Prenotazione già annullata';
@@ -449,27 +483,30 @@ async function unbook(id){
   })){closeSheet();toast('Prenotazione annullata');}
 }
 
-/* ---------- modulo di prenotazione (motivo, studi biblici) ---------- */
-function openBook(date,k,userId){
-  userId=userId||S.user.id;
-  S.sheet={mode:'new',date,k,userId,motivi:[],studi:[],note:''};renderSheet();
+/* ---------- modulo di prenotazione (con chi, motivo, studi biblici, telefono) ---------- */
+function openBook(date,k,p,userId){
+  userId=userId||S.user.id; const u=S.data.users.find(x=>x.id===userId);
+  S.sheet={mode:'new',date,k,p,userId,motivi:[],studi:[],note:'',tel:u?.tel||''};renderSheet();
 }
 function openEdit(id){
   const b=V().bookings.find(x=>x.id===id); if(!b)return;
-  S.sheet={mode:'edit',id,date:b.date,k:b.slot,userId:b.userId,motivi:[...(b.motivi||[])],studi:structuredClone(b.studi||[]),note:b.note||''};renderSheet();
+  S.sheet={mode:'edit',id,date:b.date,k:b.slot,p:b.con||'S',userId:b.userId,motivi:[...(b.motivi||[])],studi:structuredClone(b.studi||[]),note:b.note||'',tel:userTel(S.data,b)};renderSheet();
 }
 function closeSheet(){S.sheet=null;$('#sheetbg').classList.remove('show');}
 function pubSuggestions(){const set=new Set();S.data.visite.forEach(v=>v.bookings.forEach(b=>(b.studi||[]).forEach(s=>s.pub&&set.add(s.pub.trim()))));return[...set].sort((a,b)=>a.localeCompare(b,'it'));}
 function renderSheet(){
-  const sh=S.sheet; if(!sh)return closeSheet(); if(sh.mode==='info')return;
+  const sh=S.sheet; if(!sh)return closeSheet(); if(sh.mode==='info'||sh.mode==='user')return;
   const v=V(), s=v?.days.find(x=>x.date===sh.date)?.slots?.[sh.k]||{};
   const other=sh.userId!==S.user.id, who=S.data.users.find(u=>u.id===sh.userId)?.name||'';
   const hasStudi=sh.motivi.includes('studi');
   if(hasStudi&&!sh.studi.length)sh.studi.push({pub:'',lez:'',par:''});
   let h=`<h2>${sh.mode==='new'?'Prenota':'Modifica'} l'uscita</h2>
   <p><b>${esc(fmtDay(sh.date))}</b> · ${slotName(sh.k)}${s.orario?' · ore '+esc(s.orario):''}</p>
+  <p><span class="pill">${esc(conLabel(v,sh.p))}</span></p>
   ${s.luogo?`<p class="muted">📍 ${esc(s.luogo)}</p>`:''}${other?`<p>Per: <b>${esc(who)}</b></p>`:''}
-  <label>Per cosa vuoi uscire con il sorvegliante? (anche più di una)</label>
+  <label>${other?'Numero di telefono di '+esc(who):'Il tuo numero di telefono'}</label>
+  <input type="tel" inputmode="tel" autocomplete="tel" value="${esc(sh.tel)}" placeholder="es. 333 1234567" oninput="S.sheet.tel=this.value">
+  <label style="margin-top:16px">Per cosa vuoi uscire? (anche più di una)</label>
   ${MOTIVI.map(([k,l])=>`<label class="opt${sh.motivi.includes(k)?' on':''}"><input type="checkbox" ${sh.motivi.includes(k)?'checked':''} onchange="shMot('${k}',this.checked)">${l}</label>`).join('')}`;
   if(hasStudi){
     h+=`<label style="margin-top:16px">Studi biblici</label>`;
@@ -481,8 +518,8 @@ function renderSheet(){
     h+=`<button class="btn sm sec" style="margin-top:10px" onclick="shAddStudio()">+ Aggiungi un altro studio</button>
     <datalist id="pubs">${pubSuggestions().map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`;
   }
-  h+=`<label style="margin-top:16px">Note per il sorvegliante (facoltative)</label>
-  <textarea id="sh_note" placeholder="es. porto la macchina, appuntamento alle 10 con…" oninput="S.sheet.note=this.value">${esc(sh.note)}</textarea>
+  h+=`<label style="margin-top:16px">Note (facoltative)</label>
+  <textarea placeholder="es. porto la macchina, appuntamento alle 10 con…" oninput="S.sheet.note=this.value">${esc(sh.note)}</textarea>
   <button class="btn ok full" onclick="shSave()">${sh.mode==='new'?'Conferma prenotazione':'Salva modifiche'}</button>
   ${sh.mode==='edit'?`<button class="btn danger full" onclick="unbook('${sh.id}')">Annulla la prenotazione</button>`:''}
   <button class="btn sec full" onclick="closeSheet()">Chiudi</button>`;
@@ -493,34 +530,40 @@ function shMot(k,on){const m=S.sheet.motivi;if(on&&!m.includes(k))m.push(k);if(!
 function shAddStudio(){S.sheet.studi.push({pub:'',lez:'',par:''});renderSheet();}
 function shDelStudio(i){S.sheet.studi.splice(i,1);renderSheet();}
 async function shSave(){
-  const sh=S.sheet; if(!sh.motivi.length)return toast('Scegli almeno un motivo','err');
+  const sh=S.sheet;
+  const tel=String(sh.tel||'').trim();
+  if(!telOk(tel))return toast('Inserisci un numero di telefono valido','err');
+  if(!sh.motivi.length)return toast('Scegli almeno un motivo','err');
   let studi=[];
   if(sh.motivi.includes('studi')){
     studi=sh.studi.map(s=>({pub:s.pub.trim(),lez:String(s.lez).trim(),par:String(s.par).trim()})).filter(s=>s.pub||s.lez||s.par);
     if(!studi.length)return toast('Indica la pubblicazione dello studio biblico','err');
     if(studi.some(s=>!s.pub))return toast('Indica la pubblicazione per ogni studio','err');
   }
-  const det={motivi:[...sh.motivi],studi,note:sh.note.trim()};
+  const det={motivi:[...sh.motivi],studi,note:sh.note.trim(),tel};
   const who=S.data.users.find(u=>u.id===sh.userId)?.name||'';
+  const asAdmin=sh.userId!==S.user.id&&S.user.admin;
   let ok;
   if(sh.mode==='new'){
-    const asAdmin=sh.userId!==S.user.id&&S.user.admin;
-    ok=await mutate(`Prenotazione ${sh.date} ${slotName(sh.k)}: ${who}`,d=>{
-      const e=canBook(d,sh.userId,sh.date,sh.k,asAdmin); if(e)return e;
-      V(d).bookings.push(Object.assign({id:uid(),date:sh.date,slot:sh.k,userId:sh.userId,userName:who,at:new Date().toISOString(),by:S.user.id},det));
+    ok=await mutate(`Prenotazione ${sh.date} ${slotName(sh.k)} con ${conShort(sh.p)}: ${who}`,d=>{
+      const e=canBook(d,sh.userId,sh.date,sh.k,sh.p,asAdmin); if(e)return e;
+      V(d).bookings.push(Object.assign({id:uid(),date:sh.date,slot:sh.k,con:sh.p,userId:sh.userId,userName:who,at:new Date().toISOString(),by:S.user.id},det));
+      const u=d.users.find(x=>x.id===sh.userId); if(u)u.tel=tel;
     });
   }else{
     ok=await mutate(`Modificata prenotazione ${sh.date} ${slotName(sh.k)}: ${who}`,d=>{
       const b=V(d).bookings.find(x=>x.id===sh.id); if(!b)return'Prenotazione non trovata';
       if(b.userId!==S.user.id&&!S.user.admin)return'Operazione non consentita';
       Object.assign(b,det,{mod:new Date().toISOString()});
+      const u=d.users.find(x=>x.id===b.userId); if(u)u.tel=tel;
     });
   }
   if(ok){closeSheet();toast(sh.mode==='new'?'Prenotazione confermata ✓':'Modifiche salvate ✓');}
-  else if(sh.mode==='new'&&S.data&&canBook(S.data,sh.userId,sh.date,sh.k,sh.userId!==S.user.id&&S.user.admin))closeSheet();
+  else if(sh.mode==='new'&&S.data&&canBook(S.data,sh.userId,sh.date,sh.k,sh.p,asAdmin))closeSheet();
 }
-function detailHtml(b){
+function detailHtml(b,withTel){
   let h=(b.motivi||[]).map(m=>`<span class="tag">${esc(motivoName(m))}</span>`).join('');
+  if(withTel&&userTel(S.data,b))h+=`<div class="det">📞 <a href="tel:${esc(userTel(S.data,b).replace(/[^\d+]/g,''))}">${esc(userTel(S.data,b))}</a></div>`;
   (b.studi||[]).forEach(s=>{h+=`<div class="det">📖 ${esc(s.pub)}${s.lez?' · lez. '+esc(s.lez):''}${s.par?' · par. '+esc(s.par):''}</div>`;});
   if(b.note)h+=`<div class="det">✎ ${esc(b.note)}</div>`;
   return h;
@@ -530,6 +573,10 @@ function detailText(b){
   (b.studi||[]).forEach(s=>p.push('studio: '+s.pub+(s.lez?' lez. '+s.lez:'')+(s.par?' par. '+s.par:'')));
   if(b.note)p.push('note: '+b.note);
   return p.filter(Boolean).join('; ');
+}
+function eventHtml(e){
+  return `<div class="ev">🗓 <b>${esc(evTitle(e))}</b>${e.orario?' · ore '+esc(e.orario):''}${e.luogo?' · '+esc(e.luogo):''}
+  <br><span class="muted">${e.quando==='G'?'Tutto il giorno · ':e.quando==='E'?'Sera · ':''}${esc(chiText(e))}${e.note?' · '+esc(e.note):''}</span></div>`;
 }
 
 /* ---------- pagina delle prenotazioni (quella che vedono i fratelli) ---------- */
@@ -544,41 +591,53 @@ function renderHome(){
   const mine=userBookings(v,me.id).sort((a,b)=>(a.date+a.slot).localeCompare(b.date+b.slot));
   const max=Number(st.maxPerUser)||0;
   h+=`<div class="card"><h2>Ciao ${esc(me.nome||me.name.split(' ').slice(-1)[0])}</h2>
-  <p class="muted">${esc(v.nome||'')}${v.sorvegliante?' · sorvegliante: '+esc(v.sorvegliante):''}</p>`;
+  <p class="muted">${esc(v.nome||'')}${v.sorvegliante?' · sorvegliante: '+esc(v.sorvegliante):''}${v.conMoglie&&v.moglie?' e '+esc(v.moglie):''}</p>`;
   if(mine.length){
     h+=`<p>Le tue uscite:</p><ul class="who">${mine.map(b=>{const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{};
-      return `<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date))}</b> · ${slotName(b.slot)}${s.orario?' · ore '+esc(s.orario):''}${s.luogo?'<br><span class="muted">📍 '+esc(s.luogo)+'</span>':''}<br>${detailHtml(b)}</span>
+      return `<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date))}</b> · ${slotName(b.slot)}${s.orario?' · ore '+esc(s.orario):''}<br><span class="muted">${esc(conLabel(v,b.con))}</span>${s.luogo?'<br><span class="muted">📍 '+esc(s.luogo)+'</span>':''}<br>${detailHtml(b,true)}</span>
       <button class="btn sm sec" onclick="openEdit('${b.id}')">Modifica</button></li>`;}).join('')}</ul>`;
   }else h+=`<p>Non hai ancora prenotato. Scegli qui sotto una mezza giornata libera.</p>`;
-  if(max>0)h+=`<p class="muted">${max===1?'Ogni fratello può prenotare una sola uscita.':`Ogni fratello può prenotare fino a ${max} uscite.`}</p>`;
+  if(max>0)h+=`<p class="muted">${max===1?'Ognuno può prenotare una sola uscita.':`Ognuno può prenotare fino a ${max} uscite.`}</p>`;
   h+=`</div>`;
   const days=sortedDays(v), today=todayStr(), people=[...d.users].sort(byName);
   if(!days.length)h+=`<div class="card center muted">${adm?'Nessun giorno inserito: vai su <b>⚙︎ Gestione → Giorni</b>.':'I giorni non sono ancora stati pubblicati.'}</div>`;
   for(const day of days){
     const past=day.date<today;
     h+=`<div class="card"${past?' style="opacity:.6"':''}><h3>${esc(fmtDay(day.date))}</h3>`;
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='G').forEach(e=>h+=eventHtml(e));
     for(const[k,label]of SLOTS){
       const s=day.slots?.[k]; if(!s)continue;
-      if(!s.on){h+=`<div class="slot off"><div class="top"><span class="name">${label}</span><span class="pill off">Non disponibile</span></div>${s.motivo?`<p class="muted">${esc(s.motivo)}</p>`:''}</div>`;continue;}
-      const list=slotBookings(v,day.date,k),cap=slotCap(d,s),free=cap-list.length,isMine=list.some(b=>b.userId===me.id);
-      h+=`<div class="slot${isMine?' mine':''}"><div class="top"><span class="name">${label}${s.orario?' · '+esc(s.orario):''}</span>${free<=0?'<span class="pill full">Completo</span>':`<span class="pill free">${free===1?'1 posto libero':free+' posti liberi'}</span>`}</div>`;
+      const evs=v.eventi.filter(e=>e.date===day.date&&e.quando===k);
+      const ps=persList(v).map(p=>({p,on:persOn(v,day,k,p),ev:blockingEvent(v,day.date,k,p)}));
+      if(!ps.some(x=>x.on&&!x.ev)){
+        h+=`<div class="slot off"><div class="top"><span class="name">${label}</span><span class="pill off">Nessun appuntamento</span></div>${evs.map(eventHtml).join('')}</div>`;continue;}
+      const isMine=slotBookings(v,day.date,k).some(b=>b.userId===me.id);
+      h+=`<div class="slot${isMine?' mine':''}"><div class="top"><span class="name">${label}${s.orario?' · '+esc(s.orario):''}</span></div>`;
       if(s.luogo)h+=`<p class="muted">📍 ${esc(s.luogo)}</p>`;
       if(s.info)h+=`<p class="muted">${esc(s.info)}</p>`;
-      const show=st.mostraNomi||adm;
-      if(list.length){
-        h+=`<ul class="who">${list.map(b=>{const mineB=b.userId===me.id;
-          if(!show&&!mineB)return'';
-          return `<li style="align-items:flex-start"><span>${mineB?'<b>Tu</b>':esc(userName(d,b))}${(mineB||adm)?'<br>'+detailHtml(b):''}</span>
-          ${(mineB||adm)?`<button class="btn sm sec" onclick="openEdit('${b.id}')">${mineB?'Modifica':'Dettagli'}</button>`:''}</li>`;}).join('')}</ul>`;
-        if(!show)h+=`<p class="muted">${list.length} su ${cap} prenotati</p>`;
+      h+=evs.map(eventHtml).join('');
+      for(const x of ps){
+        if(!x.on||x.ev){ if(v.conMoglie)h+=`<p class="muted" style="margin-top:10px">${esc(conLabel(v,x.p))}: ${x.ev?'impegnato · '+esc(evTitle(x.ev)):'nessun appuntamento'}</p>`; continue; }
+        const list=slotBookings(v,day.date,k,x.p),cap=persCap(d,s,x.p),free=cap-list.length;
+        h+=`<div class="pblock"><div class="top"><b style="font-size:15px">${esc(conLabel(v,x.p))}</b>${free<=0?'<span class="pill full">Completo</span>':`<span class="pill free">${free===1?'1 libero':free+' liberi'}</span>`}</div>`;
+        const show=st.mostraNomi||adm;
+        if(list.length){
+          h+=`<ul class="who">${list.map(b=>{const mineB=b.userId===me.id;
+            if(!show&&!mineB)return'';
+            return `<li style="align-items:flex-start"><span>${mineB?'<b>Tu</b>':esc(userName(d,b))}${(mineB||adm)?'<br>'+detailHtml(b,adm):''}</span>
+            ${(mineB||adm)?`<button class="btn sm sec" onclick="openEdit('${b.id}')">${mineB?'Modifica':'Dettagli'}</button>`:''}</li>`;}).join('')}</ul>`;
+          if(!show)h+=`<p class="muted">${list.length} su ${cap} prenotati</p>`;
+        }
+        h+=`<div class="actions">`;
+        if(!isMine&&!past&&free>0&&v.aperto){const e=canBook(d,me.id,day.date,k,x.p,false);
+          h+=e?(/prenotare/.test(e)?'':`<span class="muted">${esc(e)}</span>`):`<button class="btn sm ok" onclick="openBook('${day.date}','${k}','${x.p}')">Prenota</button>`;}
+        if(adm&&free>0){const busy=new Set(slotBookings(v,day.date,k).map(b=>b.userId));const av=people.filter(u=>!busy.has(u.id)&&u.id!==me.id);
+          if(av.length)h+=`<select style="flex:1;min-width:150px;padding:7px" onchange="if(this.value)openBook('${day.date}','${k}','${x.p}',this.value);this.value=''"><option value="">+ Prenota per…</option>${av.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>`;}
+        h+=`</div></div>`;
       }
-      h+=`<div class="actions">`;
-      if(!isMine&&!past&&free>0&&v.aperto){const e=canBook(d,me.id,day.date,k,false);
-        h+=e?(/prenotare/.test(e)?'':`<span class="muted">${esc(e)}</span>`):`<button class="btn sm ok" onclick="openBook('${day.date}','${k}')">Prenota</button>`;}
-      if(adm&&free>0){const av=people.filter(u=>!list.some(b=>b.userId===u.id)&&u.id!==me.id);
-        if(av.length)h+=`<select style="flex:1;min-width:150px;padding:7px" onchange="if(this.value)openBook('${day.date}','${k}',this.value);this.value=''"><option value="">+ Prenota per un fratello…</option>${av.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>`;}
-      h+=`</div></div>`;
+      h+=`</div>`;
     }
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='E').forEach(e=>h+=eventHtml(e));
     h+=`</div>`;
   }
   $('#app').innerHTML=h;
@@ -586,10 +645,10 @@ function renderHome(){
 
 /* ---------- gestione (solo amministratori) ---------- */
 function renderAdmin(){
-  const tabs=[['giorni','Giorni'],['fratelli','Fratelli'],['riepilogo','Riepilogo'],['visite','Visite'],['storico','Storico'],['impostazioni','Impostazioni']];
+  const tabs=[['giorni','Giorni'],['eventi','Eventi'],['fratelli','Fratelli'],['riepilogo','Riepilogo'],['visite','Visite'],['storico','Storico'],['impostazioni','Impostazioni']];
   let h=`<div class="tabs">${tabs.map(([k,l])=>`<button class="${S.tab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('')}</div>`;
   if(S.demo)h+=`<div class="banner warn">Modalità demo.</div>`;
-  h+=({giorni:admDays,fratelli:admUsers,riepilogo:admSummary,visite:admVisits,storico:admHistory,impostazioni:admSettings})[S.tab]();
+  h+=({giorni:admDays,eventi:admEvents,fratelli:admUsers,riepilogo:admSummary,visite:admVisits,storico:admHistory,impostazioni:admSettings})[S.tab]();
   $('#app').innerHTML=h;
 }
 function needVisit(){return `<div class="card center muted">Nessuna visita attiva. Creane una nella scheda <b>Visite</b>.<br><br><button class="btn" onclick="setTab('visite')">Vai a Visite</button></div>`;}
@@ -604,36 +663,44 @@ function admDays(){
     <div class="row2"><div><label>Orario mattina</label><input id="g_om" value="9:30"></div><div><label>Orario pomeriggio</label><input id="g_op" value="15:30"></div></div>
     <button class="btn full" onclick="addDays()">Aggiungi</button></div>`;
   if(S.draftDays)h+=`<div class="banner warn">Modifiche non ancora salvate. <button class="btn sm" onclick="saveDays()">Salva ora</button></div>`;
-  h+=`<div class="card"><h2>Mezze giornate</h2><p class="muted">Togli la spunta dove il sorvegliante non esce in servizio (riunioni, visite, altri impegni) e scrivi il motivo. Per le altre indica quanti appuntamenti può prendere.</p>`;
+  h+=`<div class="card"><h2>Mezze giornate</h2><p class="muted">Per ogni mezza giornata indica chi esce in servizio e quanti appuntamenti può prendere. Adunanze, mezze giornate libere e altri impegni si inseriscono nella scheda <b>Eventi</b>.</p>`;
   if(!days.length)h+=`<p class="muted">Nessun giorno ancora.</p>`;
   days.forEach((day,i)=>{
     h+=`<div class="dayedit"><div class="hd"><h3 style="margin:0">${esc(fmtDay(day.date))}</h3><button class="btn sm danger" onclick="delDay(${i})">Elimina</button></div>`;
-    for(const[k,label]of SLOTS){const s=day.slots[k]||{on:false},n=slotBookings(v,day.date,k).length;
-      h+=`<div class="slotedit"><label class="chk"><input type="checkbox" ${s.on?'checked':''} onchange="dd(${i},'${k}','on',this.checked)"><b>${label}</b>&nbsp;– esce in servizio${n?` <span class="pill" style="margin-left:6px">${n} prenot.</span>`:''}</label>
-      ${s.on?`<div class="row2"><div><label>Appuntamenti</label><input type="number" min="1" max="20" value="${esc(s.cap??d.settings.capDefault)}" oninput="dd(${i},'${k}','cap',this.value)"></div>
-        <div><label>Orario</label><input value="${esc(s.orario||'')}" placeholder="9:30" oninput="dd(${i},'${k}','orario',this.value)"></div></div>
-        <label>Luogo d'incontro</label><input value="${esc(s.luogo||'')}" placeholder="es. Sala del Regno" oninput="dd(${i},'${k}','luogo',this.value)">
-        <label>Note (facoltative)</label><input value="${esc(s.info||'')}" placeholder="es. testimonianza pubblica" oninput="dd(${i},'${k}','info',this.value)">`
-      :`<label>Motivo / impegno</label><input value="${esc(s.motivo||'')}" placeholder="es. Riunione con gli anziani" oninput="dd(${i},'${k}','motivo',this.value)">`}</div>`;}
+    v.eventi.filter(e=>e.date===day.date&&(e.quando==='G'||e.quando==='E')).forEach(e=>h+=eventHtml(e));
+    for(const[k,label]of SLOTS){const s=day.slots[k]||{};
+      h+=`<div class="slotedit"><b>${label}</b>
+      <div class="row2"><div><label>Orario</label><input value="${esc(s.orario||'')}" placeholder="9:30" oninput="dd(${i},'${k}','orario',this.value)"></div>
+      <div><label>Luogo d'incontro</label><input value="${esc(s.luogo||'')}" placeholder="es. Sala del Regno" oninput="dd(${i},'${k}','luogo',this.value)"></div></div>
+      <label>Note (facoltative)</label><input value="${esc(s.info||'')}" placeholder="es. testimonianza pubblica" oninput="dd(${i},'${k}','info',this.value)">`;
+      for(const p of persList(v)){const ps=s[p]||{},n=slotBookings(v,day.date,k,p).length,ev=blockingEvent(v,day.date,k,p);
+        h+=`<label class="chk" style="margin-top:10px"><input type="checkbox" ${ps.on?'checked':''} onchange="dd(${i},'${k}','${p}.on',this.checked)">${p==='S'?'Il sorvegliante esce':'La moglie esce'}${n?` <span class="pill" style="margin-left:6px">${n} prenot.</span>`:''}</label>
+        ${ev?`<p class="muted" style="margin:0 0 4px 30px">Bloccato da: ${esc(evTitle(ev))}</p>`:''}
+        ${ps.on?`<div style="margin-left:30px"><label style="margin-top:2px">Appuntamenti ${p==='S'?'con il sorvegliante':'con la moglie'}</label><input type="number" min="1" max="20" value="${esc(ps.cap??(p==='S'?d.settings.capDefault:d.settings.capMoglie))}" oninput="dd(${i},'${k}','${p}.cap',this.value)"></div>`:''}`;}
+      v.eventi.filter(e=>e.date===day.date&&e.quando===k).forEach(e=>h+=eventHtml(e));
+      h+=`</div>`;}
     h+=`</div>`;
   });
   if(days.length)h+=`<button class="btn full" onclick="saveDays()">Salva giorni</button>`;
   return h+`</div>`;
 }
 function draft(){if(!S.draftDays)S.draftDays=structuredClone(sortedDays(V()));return S.draftDays;}
-function dd(i,k,f,v){
-  const clean=!S.draftDays, days=draft(); days[i].slots[k]=days[i].slots[k]||{on:false}; days[i].slots[k][f]=v;
-  if(f==='on'){if(v&&days[i].slots[k].cap==null)days[i].slots[k].cap=S.data.settings.capDefault;return render();}
+function dd(i,k,f,val){
+  const clean=!S.draftDays, days=draft(); const s=days[i].slots[k]=days[i].slots[k]||{};
+  const parts=f.split('.'); let o=s; if(parts.length===2){o=s[parts[0]]=s[parts[0]]||{};}
+  o[parts[parts.length-1]]=val;
+  if(f.endsWith('.on')){const p=parts[0];if(val&&o.cap==null)o.cap=p==='S'?S.data.settings.capDefault:S.data.settings.capMoglie;return render();}
   if(clean){let pos=null;try{pos=document.activeElement.selectionStart;}catch{}render();
     const el=document.querySelector(`[oninput^="dd(${i},'${k}','${f}'"]`);if(el){el.focus();try{if(pos!=null)el.setSelectionRange(pos,pos);}catch{}}}
 }
 function addDays(){
   const f=$('#g_from').value,t=$('#g_to').value||f,noMon=$('#g_nomon').checked;
   if(!f)return toast('Scegli la data iniziale','err'); if(t<f)return toast('La data finale è prima di quella iniziale','err');
-  const days=draft(),cap=S.data.settings.capDefault,om=$('#g_om').value.trim(),op=$('#g_op').value.trim();let n=0;
+  const days=draft(),st=S.data.settings,cm=!!V().conMoglie,om=$('#g_om').value.trim(),op=$('#g_op').value.trim();let n=0;
+  const mk=or=>({orario:or,luogo:'',S:{on:true,cap:st.capDefault},M:{on:cm,cap:st.capMoglie}});
   for(let dt=parseDate(f);ymd(dt)<=t&&n<31;dt.setDate(dt.getDate()+1)){const s=ymd(dt);
     if(noMon&&dt.getDay()===1)continue; if(days.some(x=>x.date===s))continue;
-    days.push({date:s,slots:{M:{on:true,cap,orario:om,luogo:''},P:{on:true,cap,orario:op,luogo:''}}});n++;}
+    days.push({date:s,slots:{M:mk(om),P:mk(op)}});n++;}
   days.sort((a,b)=>a.date.localeCompare(b.date)); render();
   toast(n?`Aggiunti ${n} giorni: controlla e premi “Salva giorni”`:'Nessun nuovo giorno da aggiungere');
 }
@@ -641,13 +708,62 @@ function delDay(i){const days=draft(),n=V().bookings.filter(b=>b.date===days[i].
   if(n&&!confirm(`Questo giorno ha ${n} prenotazioni, che verranno cancellate al salvataggio. Continuare?`))return; days.splice(i,1); render();}
 async function saveDays(){
   const days=structuredClone(S.draftDays||sortedDays(V()));
-  days.forEach(day=>SLOTS.forEach(([k])=>{const s=day.slots[k];if(s&&s.on)s.cap=Math.max(1,Math.min(20,parseInt(s.cap)||1));}));
-  const valid=new Set();days.forEach(day=>SLOTS.forEach(([k])=>{if(day.slots[k]?.on)valid.add(day.date+'|'+k);}));
-  const lost=V().bookings.filter(b=>!valid.has(b.date+'|'+b.slot));
-  if(lost.length&&!confirm(`${lost.length} prenotazioni riguardano mezze giornate eliminate o non più disponibili e verranno cancellate. Continuare?`))return;
+  days.forEach(day=>SLOTS.forEach(([k])=>PERS.forEach(p=>{const ps=day.slots[k]?.[p];if(ps&&ps.on)ps.cap=Math.max(1,Math.min(20,parseInt(ps.cap)||1));})));
+  const cur=V(), valid=validKeys(Object.assign({},cur,{days}));
+  const lost=cur.bookings.filter(b=>!valid.has(bKey(b)));
+  if(lost.length&&!confirm(`${lost.length} prenotazioni riguardano mezze giornate non più disponibili e verranno cancellate. Continuare?`))return;
   const vid=S.data.attiva;
-  if(await mutate('Aggiornati i giorni della visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';v.days=days;v.bookings=v.bookings.filter(b=>valid.has(b.date+'|'+b.slot));})){S.draftDays=null;render();toast('Giorni salvati ✓');}
+  if(await mutate('Aggiornati i giorni della visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';v.days=days;const ok=validKeys(v);v.bookings=v.bookings.filter(b=>ok.has(bKey(b)));})){S.draftDays=null;render();toast('Giorni salvati ✓');}
 }
+
+/* --- Eventi: adunanze, mezze giornate libere, altri impegni --- */
+function evDefault(v){const ds=sortedDays(v);return{date:ds[0]?.date||'',quando:'M',tipo:'pionieri',titolo:'',chi:v.conMoglie?['S','M']:['S'],orario:'',luogo:'',note:''};}
+function admEvents(){
+  const v=V(); if(!v)return needVisit();
+  const f=S.evForm=S.evForm||evDefault(v), ds=sortedDays(v);
+  const evs=[...v.eventi].sort((a,b)=>(a.date+QUANDO.findIndex(x=>x[0]===a.quando)).localeCompare(b.date+QUANDO.findIndex(x=>x[0]===b.quando)));
+  let h=`<div class="card"><h2>${f.editId?'Modifica evento':'Aggiungi un evento'}</h2>
+    <p class="muted">Nelle mezze giornate di un evento non si possono prendere appuntamenti con chi è impegnato. Gli eventi della sera compaiono solo nel programma.</p>
+    <label>Tipo</label><select onchange="evTipo(this.value)">${EVENTI.map(([k,l])=>`<option value="${k}" ${f.tipo===k?'selected':''}>${l}</option>`).join('')}</select>
+    <label>${f.tipo==='altro'?'Descrizione':'Descrizione (facoltativa, se diversa)'}</label><input value="${esc(f.titolo)}" placeholder="${f.tipo==='altro'?'es. Visita ai fratelli anziani':esc(evTitle({tipo:f.tipo}))}" oninput="S.evForm.titolo=this.value">
+    <div class="row2"><div><label>Giorno</label>${ds.length?`<select onchange="S.evForm.date=this.value">${ds.map(x=>`<option value="${x.date}" ${f.date===x.date?'selected':''}>${esc(fmtDay(x.date,{weekday:'short',day:'numeric',month:'short'}))}</option>`).join('')}</select>`:`<input type="date" value="${esc(f.date)}" onchange="S.evForm.date=this.value">`}</div>
+    <div><label>Quando</label><select onchange="S.evForm.quando=this.value">${QUANDO.map(([k,l])=>`<option value="${k}" ${f.quando===k?'selected':''}>${l}</option>`).join('')}</select></div></div>
+    <label>Chi è impegnato</label>
+    <label class="chk"><input type="checkbox" ${f.chi.includes('S')?'checked':''} onchange="evChi('S',this.checked)"> Sorvegliante</label>
+    ${v.conMoglie?`<label class="chk"><input type="checkbox" ${f.chi.includes('M')?'checked':''} onchange="evChi('M',this.checked)"> Moglie del sorvegliante</label>`:''}
+    <div class="row2"><div><label>Orario</label><input value="${esc(f.orario)}" placeholder="es. 10:00" oninput="S.evForm.orario=this.value"></div>
+    <div><label>Luogo</label><input value="${esc(f.luogo)}" placeholder="es. Sala del Regno" oninput="S.evForm.luogo=this.value"></div></div>
+    <label>Note (facoltative)</label><input value="${esc(f.note)}" oninput="S.evForm.note=this.value">
+    <button class="btn full" onclick="saveEvent()">${f.editId?'Salva evento':'Aggiungi evento'}</button>
+    ${f.editId?`<button class="btn sec full" onclick="S.evForm=null;render()">Annulla modifica</button>`:''}</div>
+  <div class="card"><h2>Eventi della visita (${evs.length})</h2>`;
+  if(!evs.length)h+=`<p class="muted">Nessun evento.</p>`;
+  let last='';
+  evs.forEach(e=>{if(e.date!==last){h+=`<p style="margin-top:14px"><b>${esc(fmtDay(e.date))}</b></p>`;last=e.date;}
+    h+=`<div class="it" style="display:flex;gap:8px;align-items:flex-start;padding:6px 0"><div class="grow"><b>${quandoName(e.quando)}</b> · ${esc(evTitle(e))}${e.orario?' · ore '+esc(e.orario):''}<br><span class="muted">${esc(chiText(e))}${e.luogo?' · '+esc(e.luogo):''}${e.note?' · '+esc(e.note):''}</span></div>
+    <button class="btn sm sec" onclick="editEvent('${e.id}')">Modifica</button><button class="btn sm danger" onclick="delEvent('${e.id}')">Elimina</button></div>`;});
+  return h+`</div>`;
+}
+function evTipo(t){const f=S.evForm,v=V();f.tipo=t;const def=(EVENTI.find(x=>x[0]===t)||[,,['S']])[2];f.chi=def.filter(p=>p==='S'||v.conMoglie);if(t==='libera'&&f.quando==='E')f.quando='M';render();}
+function evChi(p,on){const f=S.evForm;f.chi=f.chi.filter(x=>x!==p);if(on)f.chi.push(p);f.chi.sort();f.chi.reverse();}
+function editEvent(id){const e=V().eventi.find(x=>x.id===id);if(!e)return;S.evForm=Object.assign(structuredClone(e),{editId:id,titolo:e.titolo||'',orario:e.orario||'',luogo:e.luogo||'',note:e.note||''});render();scrollTo(0,0);}
+async function saveEvent(){
+  const f=S.evForm,v=V();
+  if(!f.date)return toast('Scegli il giorno','err');
+  if(f.tipo==='altro'&&!f.titolo.trim())return toast('Scrivi la descrizione dell\'evento','err');
+  if(!f.chi.length&&f.quando!=='E')return toast('Indica chi è impegnato','err');
+  const ev={id:f.editId||uid(),date:f.date,quando:f.quando,tipo:f.tipo,titolo:f.titolo.trim(),chi:[...f.chi],orario:f.orario.trim(),luogo:f.luogo.trim(),note:f.note.trim()};
+  const test=Object.assign({},v,{eventi:v.eventi.filter(x=>x.id!==ev.id).concat(ev)}), valid=validKeys(test);
+  const lost=v.bookings.filter(b=>!valid.has(bKey(b)));
+  if(lost.length&&!confirm(`In questa mezza giornata ci sono ${lost.length} prenotazioni (${lost.map(b=>userName(S.data,b)).join(', ')}) che verranno cancellate. Continuare?`))return;
+  const vid=S.data.attiva;
+  if(await mutate((f.editId?'Modificato':'Aggiunto')+' evento: '+evTitle(ev),d=>{const vv=d.visite.find(x=>x.id===vid);if(!vv)return'Visita non trovata';
+    vv.eventi=vv.eventi.filter(x=>x.id!==ev.id).concat(ev);const ok=validKeys(vv);vv.bookings=vv.bookings.filter(b=>ok.has(bKey(b)));})){
+    S.evForm=Object.assign(evDefault(V()),{date:ev.date});render();toast(f.editId?'Evento salvato ✓':'Evento aggiunto ✓');}
+}
+async function delEvent(id){const e=V().eventi.find(x=>x.id===id);if(!e||!confirm(`Eliminare “${evTitle(e)}” di ${fmtDay(e.date)}?`))return;
+  const vid=S.data.attiva;
+  if(await mutate('Eliminato evento: '+evTitle(e),d=>{const vv=d.visite.find(x=>x.id===vid);vv.eventi=vv.eventi.filter(x=>x.id!==id);})){if(S.evForm?.editId===id)S.evForm=null;render();toast('Evento eliminato');}}
 
 /* --- Fratelli (con importazione da "Gruppi di servizio") --- */
 function admUsers(){
@@ -668,10 +784,10 @@ function admUsers(){
   }
   h+=`</div><div class="card"><h2>Aggiungi a mano</h2><p class="muted">Un nome per riga.</p>
     <textarea id="u_new" placeholder="Rossi Mario&#10;Bianchi Luca"></textarea><button class="btn full" onclick="addUsers()">Aggiungi</button></div>
-    <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN.</p><div class="list">
+    <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN. Il telefono lo inserisce chi prenota, oppure lo aggiungi tu con “Modifica”.</p><div class="list">
     ${users.map(u=>{const n=userBookings(v,u.id).length;return`<div class="it"><div class="grow"><b>${esc(u.name)}</b>${u.admin?' <span class="pill">Amministratore</span>':''}<br>
-      <span class="muted">${u.gruppo?esc(u.gruppo)+' · ':''}${u.pin?'PIN impostato':'Non ha ancora fatto l\'accesso'}${v?' · '+n+' prenot.':''}</span></div>
-      <div style="display:flex;flex-direction:column;gap:4px">${u.id===S.user.id?'<span class="muted">(tu)</span>':`
+      <span class="muted">${u.tel?'📞 '+esc(u.tel)+'<br>':''}${u.gruppo?esc(u.gruppo)+' · ':''}${u.pin?'PIN impostato':'Non ha ancora fatto l\'accesso'}${v?' · '+n+' prenot.':''}</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><button class="btn sm sec" onclick="editUser('${u.id}')">Modifica</button>${u.id===S.user.id?'<span class="muted center">(tu)</span>':`
       ${u.pin?`<button class="btn sm sec" onclick="resetPin('${u.id}')">Azzera PIN</button>`:''}
       <button class="btn sm sec" onclick="toggleAdmin('${u.id}')">${u.admin?'Togli admin':'Rendi admin'}</button>
       <button class="btn sm danger" onclick="delUser('${u.id}')">Elimina</button>`}</div></div>`;}).join('')}</div></div>`;
@@ -708,6 +824,18 @@ async function impDo(){
     if(!n)return'Nessun nuovo nominativo da importare';
   })){S.imp=null;render();toast(`Importati ${n} nominativi ✓`);}
 }
+function editUser(id){const u=S.data.users.find(x=>x.id===id);if(!u)return;
+  S.sheet={mode:'user'};
+  $('#sheet').innerHTML=`<h2>Modifica</h2><label>Nome</label><input id="eu_name" value="${esc(u.name)}">
+  <label>Numero di telefono</label><input id="eu_tel" type="tel" inputmode="tel" value="${esc(u.tel||'')}" placeholder="es. 333 1234567">
+  <button class="btn full" onclick="saveUser('${id}')">Salva</button><button class="btn sec full" onclick="closeSheet()">Chiudi</button>`;
+  $('#sheetbg').classList.add('show');}
+async function saveUser(id){const name=$('#eu_name').value.replace(/\s+/g,' ').trim(),tel=$('#eu_tel').value.trim();
+  if(!name)return toast('Il nome non può essere vuoto','err');
+  if(tel&&!telOk(tel))return toast('Numero di telefono non valido','err');
+  if(await mutate('Modificato: '+name,d=>{const u=d.users.find(x=>x.id===id);if(!u)return'Non trovato';
+    if(d.users.some(x=>x.id!==id&&x.name.toLowerCase()===name.toLowerCase()))return'Esiste già un altro nome uguale';
+    if(u.name!==name){u.name=name;delete u.nome;delete u.cognome;} u.tel=tel;})){closeSheet();toast('Salvato ✓');}}
 async function addUsers(){
   const names=$('#u_new').value.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
   if(!names.length)return toast('Scrivi almeno un nome','err');let n=0;
@@ -723,45 +851,59 @@ async function delUser(id){const u=S.data.users.find(x=>x.id===id),n=userBooking
   if(!confirm(`Eliminare ${u.name} dall'elenco?${n?` Verranno cancellate le sue ${n} prenotazioni della visita attuale.`:''} Lo storico delle visite passate resta.`))return;
   if(await mutate('Eliminato: '+u.name,d=>{d.users=d.users.filter(x=>x.id!==id);const v=V(d);if(v)v.bookings=v.bookings.filter(b=>b.userId!==id);}))toast('Eliminato');}
 
-/* --- Riepilogo della visita attiva --- */
+/* --- Riepilogo della visita attiva (programma per il sorvegliante) --- */
 function visitText(d,v,withDetails){
-  let t=`*${v.nome||d.settings.titolo}*${v.sorvegliante?'\nSorvegliante: '+v.sorvegliante:''}${d.settings.congregazione?'\n'+d.settings.congregazione:''}\n`;
+  const evLine=e=>`🗓 ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' – '+e.luogo:''} (${chiText(e)})${e.note?' – '+e.note:''}`;
+  let t=`*${v.nome||d.settings.titolo}*${d.settings.congregazione?'\n'+d.settings.congregazione:''}`;
+  if(v.sorvegliante)t+=`\nSorvegliante: ${v.sorvegliante}${withDetails&&v.telSorv?' – '+v.telSorv:''}`;
+  if(v.conMoglie&&v.moglie)t+=`\nMoglie: ${v.moglie}${withDetails&&v.telMoglie?' – '+v.telMoglie:''}`;
+  t+='\n';
   for(const day of sortedDays(v)){
     t+=`\n*${fmtDay(day.date)}*\n`;
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='G').forEach(e=>t+=evLine(e)+' – tutto il giorno\n');
     for(const[k,label]of SLOTS){const s=day.slots[k];if(!s)continue;
-      if(!s.on){t+=`${label}: non esce${s.motivo?' ('+s.motivo+')':''}\n`;continue;}
-      const list=slotBookings(v,day.date,k), cap=slotCap(d,s);
-      t+=`${label}${s.orario?' ore '+s.orario:''}${s.luogo?' – '+s.luogo:''}${list.length<cap?` [${cap-list.length===1?'1 posto libero':(cap-list.length)+' posti liberi'}]`:''}\n`;
-      list.forEach(b=>{t+=`  • ${userName(d,b)}${withDetails&&detailText(b)?' – '+detailText(b):''}\n`;});
-      if(!list.length)t+='  • nessuno\n';
+      const evs=v.eventi.filter(e=>e.date===day.date&&e.quando===k);
+      const ps=persList(v).filter(p=>available(v,day,k,p));
+      t+=`${label}${s.orario&&ps.length?' ore '+s.orario:''}${s.luogo&&ps.length?' – '+s.luogo:''}${ps.length||evs.length?'':': nessun appuntamento'}\n`;
+      evs.forEach(e=>t+='  '+evLine(e)+'\n');
+      for(const p of ps){const list=slotBookings(v,day.date,k,p),cap=persCap(d,s,p),fr=cap-list.length;
+        t+=`  ${v.conMoglie?conLabel(v,p):'Appuntamenti'}${fr>0?` [${fr===1?'1 posto libero':fr+' posti liberi'}]`:''}:\n`;
+        list.forEach(b=>{const tel=withDetails?userTel(d,b):'';t+=`    • ${userName(d,b)}${tel?' ('+tel+')':''}${withDetails&&detailText(b)?' – '+detailText(b):''}\n`;});
+        if(!list.length)t+='    • nessuno\n';}
     }
+    v.eventi.filter(e=>e.date===day.date&&e.quando==='E').forEach(e=>t+='Sera: '+evLine(e)+'\n');
   }
   return t;
 }
 function admSummary(){
   const d=S.data,v=V(d);if(!v)return needVisit();
   const booked=new Set(v.bookings.map(b=>b.userId)),none=d.users.filter(u=>!booked.has(u.id)).sort(byName);
-  let free=0,tot=0,cnt={campo:0,ulteriori:0,studi:0};
-  v.days.forEach(day=>SLOTS.forEach(([k])=>{const s=day.slots[k];if(s?.on){const c=slotCap(d,s);tot+=c;free+=Math.max(0,c-slotBookings(v,day.date,k).length);}}));
+  const tot={S:0,M:0},free={S:0,M:0},cnt={};
+  v.days.forEach(day=>SLOTS.forEach(([k])=>persList(v).forEach(p=>{if(available(v,day,k,p)){const c=persCap(d,day.slots[k],p);tot[p]+=c;free[p]+=Math.max(0,c-slotBookings(v,day.date,k,p).length);}})));
   v.bookings.forEach(b=>(b.motivi||[]).forEach(m=>cnt[m]=(cnt[m]||0)+1));
   const txt=visitText(d,v,true);
   return `<div class="card"><h2>${esc(v.nome)}</h2>
-    <p><b>${v.bookings.length}</b> prenotazioni · <b>${free}</b> posti liberi su ${tot}</p>
+    <p><b>${v.bookings.length}</b> prenotazioni</p>
+    <p class="muted">Sorvegliante: ${tot.S-free.S} su ${tot.S} posti${v.conMoglie?` · Moglie: ${tot.M-free.M} su ${tot.M} posti`:''}</p>
     <p class="muted">${MOTIVI.map(([k,l])=>`${l}: <b>${cnt[k]||0}</b>`).join(' · ')}</p>
     <pre class="mono" style="white-space:pre-wrap;margin-top:10px">${esc(txt)}</pre>
     <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,V(),true))">Copia</button>
     <a class="btn sm ok" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a>
-    <button class="btn sm sec" onclick="copy(visitText(S.data,V(),false))">Copia senza dettagli</button></div></div>
+    <button class="btn sm sec" onclick="copy(visitText(S.data,V(),false))">Copia senza telefoni e dettagli</button></div></div>
     <div class="card"><h2>Non hanno ancora prenotato (${none.length})</h2>${none.length?`<p>${none.map(u=>esc(u.name)).join(', ')}</p>`:'<p class="muted">Tutti hanno prenotato.</p>'}</div>`;
 }
 
-/* --- Visite: visita attiva e nuova visita --- */
+/* --- Visite: visita attiva (sorvegliante e moglie) e nuova visita --- */
 function admVisits(){
   const d=S.data,v=V(d);
   let h='';
   if(v)h+=`<div class="card"><h2>Visita attiva</h2>
     <label>Nome della visita</label><input id="v_nome" value="${esc(v.nome)}">
-    <label>Sorvegliante</label><input id="v_sorv" value="${esc(v.sorvegliante)}">
+    <div class="row2"><div><label>Sorvegliante</label><input id="v_sorv" value="${esc(v.sorvegliante)}"></div>
+    <div><label>Telefono del sorvegliante</label><input id="v_tels" type="tel" value="${esc(v.telSorv)}"></div></div>
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="v_cm" ${v.conMoglie?'checked':''}> Si prendono appuntamenti anche con la moglie</label>
+    <div class="row2"><div><label>Moglie del sorvegliante</label><input id="v_mog" value="${esc(v.moglie)}"></div>
+    <div><label>Telefono della moglie</label><input id="v_telm" type="tel" value="${esc(v.telMoglie)}"></div></div>
     <label class="chk" style="margin-top:14px"><input type="checkbox" id="v_open" ${v.aperto?'checked':''}> Prenotazioni aperte</label>
     <label>Avviso per i fratelli (facoltativo)</label><textarea id="v_nota" placeholder="es. Portate le pubblicazioni del mese">${esc(v.nota)}</textarea>
     <p class="muted">${visitRange(v)} · ${v.bookings.length} prenotazioni</p>
@@ -769,28 +911,37 @@ function admVisits(){
   h+=`<div class="card"><h2>Nuova visita</h2>
     <p class="muted">Crea la prossima settimana di visita. ${v?'La visita attuale verrà chiusa e conservata nello <b>Storico</b>; ':''}l'elenco dei fratelli resta, le prenotazioni ripartono da zero.</p>
     <label>Nome della visita</label><input id="n_nome" placeholder="es. Visita di marzo 2027">
-    <label>Sorvegliante</label><input id="n_sorv" value="${esc(v?.sorvegliante||'')}">
-    ${v?`<label class="chk" style="margin-top:12px"><input type="checkbox" id="n_copy"> Copia orari e luoghi dalla visita attuale (con le date spostate)</label>
+    <div class="row2"><div><label>Sorvegliante</label><input id="n_sorv" value="${esc(v?.sorvegliante||'')}"></div><div><label>Moglie</label><input id="n_mog" value="${esc(v?.moglie||'')}"></div></div>
+    ${v?`<label class="chk" style="margin-top:12px"><input type="checkbox" id="n_copy"> Copia orari, luoghi ed eventi dalla visita attuale (con le date spostate)</label>
     <label>Primo giorno della nuova visita</label><input type="date" id="n_start">`:''}
     <button class="btn ok full" onclick="newVisit()">Crea e attiva la nuova visita</button></div>`;
   return h;
 }
 async function saveVisit(){
-  const vid=S.data.attiva,val={nome:$('#v_nome').value.trim()||'Visita',sorvegliante:$('#v_sorv').value.trim(),aperto:$('#v_open').checked,nota:$('#v_nota').value.trim()};
-  if(await mutate('Aggiornata la visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';Object.assign(v,val);}))toast('Salvato ✓');
+  const vid=S.data.attiva,val={nome:$('#v_nome').value.trim()||'Visita',sorvegliante:$('#v_sorv').value.trim(),telSorv:$('#v_tels').value.trim(),
+    conMoglie:$('#v_cm').checked,moglie:$('#v_mog').value.trim(),telMoglie:$('#v_telm').value.trim(),aperto:$('#v_open').checked,nota:$('#v_nota').value.trim()};
+  const cur=V(), valid=validKeys(Object.assign({},cur,val)), lost=cur.bookings.filter(b=>!valid.has(bKey(b)));
+  if(lost.length&&!confirm(`${lost.length} prenotazioni con la moglie verranno cancellate. Continuare?`))return;
+  if(await mutate('Aggiornata la visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';
+    const wasM=v.conMoglie;Object.assign(v,val);
+    if(val.conMoglie&&!wasM)v.days.forEach(day=>SLOTS.forEach(([k])=>{const s=day.slots[k];if(s&&s.S?.on&&!(s.M&&s.M.on))s.M={on:true,cap:s.M?.cap??d.settings.capMoglie};}));
+    const ok=validKeys(v);v.bookings=v.bookings.filter(b=>ok.has(bKey(b)));}))toast('Salvato ✓');
 }
 async function newVisit(){
-  const nome=$('#n_nome').value.trim(),sorv=$('#n_sorv').value.trim(),cp=$('#n_copy')?.checked,start=$('#n_start')?.value;
+  const nome=$('#n_nome').value.trim(),sorv=$('#n_sorv').value.trim(),mog=$('#n_mog').value.trim(),cp=$('#n_copy')?.checked,start=$('#n_start')?.value;
   if(!nome)return toast('Dai un nome alla nuova visita','err');
-  const cur=V();let days=[];
+  const cur=V();let days=[],eventi=[];
   if(cp){if(!start)return toast('Indica il primo giorno della nuova visita','err');
     const old=sortedDays(cur);if(old.length){const off=Math.round((parseDate(start)-parseDate(old[0].date))/864e5);
-      days=old.map(x=>{const dt=parseDate(x.date);dt.setDate(dt.getDate()+off);return{date:ymd(dt),slots:structuredClone(x.slots)};});}}
+      const mv=s=>{const dt=parseDate(s);dt.setDate(dt.getDate()+off);return ymd(dt);};
+      days=old.map(x=>({date:mv(x.date),slots:structuredClone(x.slots)}));
+      eventi=cur.eventi.map(e=>Object.assign(structuredClone(e),{id:uid(),date:mv(e.date)}));}}
   if(!confirm(`Creare “${nome}” e renderla la visita attiva?${cur?` “${cur.nome}” andrà nello storico.`:''}`))return;
   const id=uid();
   if(await mutate('Nuova visita: '+nome,d=>{const old=V(d);if(old)old.aperto=false;
-    d.visite.push({id,nome,sorvegliante:sorv,aperto:true,nota:'',creata:new Date().toISOString(),days,bookings:[]});d.attiva=id;})){
-    S.tab='giorni';render();toast('Nuova visita creata ✓ Ora controlla i giorni');}
+    d.visite.push({id,nome,sorvegliante:sorv,telSorv:old&&old.sorvegliante===sorv?old.telSorv||'':'',moglie:mog,telMoglie:old&&old.moglie===mog?old.telMoglie||'':'',
+      conMoglie:!!mog,aperto:true,nota:'',creata:new Date().toISOString(),days,eventi,bookings:[]});d.attiva=id;})){
+    S.evForm=null;S.tab='giorni';render();toast('Nuova visita creata ✓ Ora controlla i giorni');}
 }
 
 /* --- Storico di tutte le visite e degli appuntamenti --- */
@@ -801,7 +952,7 @@ function admHistory(){
   let h=`<div class="card"><h2>Storico per fratello</h2>
     <select onchange="S.histUser=this.value;render()"><option value="">— Scegli un nome —</option>${names.map(n=>`<option ${S.histUser===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
   if(S.histUser){const mine=all.filter(x=>userName(d,x.b)===S.histUser).sort((a,b)=>b.b.date.localeCompare(a.b.date));
-    h+=`<p class="muted" style="margin-top:10px">${mine.length===1?'1 uscita':mine.length+' uscite'} con il sorvegliante</p><ul class="who">${mine.map(({v,b})=>`<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b> · ${slotName(b.slot)}<br><span class="muted">${esc(v.nome)}${v.sorvegliante?' · '+esc(v.sorvegliante):''}</span><br>${detailHtml(b)}</span></li>`).join('')}</ul>`;}
+    h+=`<p class="muted" style="margin-top:10px">${mine.length===1?'1 uscita':mine.length+' uscite'}</p><ul class="who">${mine.map(({v,b})=>`<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b> · ${slotName(b.slot)}<br><span class="muted">${esc(v.nome)} · ${esc(conLabel(v,b.con))}</span><br>${detailHtml(b,true)}</span></li>`).join('')}</ul>`;}
   h+=`<div class="actions"><button class="btn sm sec" onclick="downloadCsv()">Scarica tutto lo storico (Excel/CSV)</button></div></div>
   <div class="card"><h2>Visite (${vs.length})</h2><div class="list">`;
   vs.forEach(v=>{const act=v.id===d.attiva,open=S.histOpen===v.id;
@@ -814,15 +965,15 @@ function admHistory(){
   return h+`</div></div>`;
 }
 async function activateVisit(id){const v=S.data.visite.find(x=>x.id===id);if(!confirm(`Rendere di nuovo attiva “${v.nome}”? I fratelli vedranno questa visita.`))return;
-  if(await mutate('Riattivata visita: '+v.nome,d=>{if(!d.visite.some(x=>x.id===id))return'Non trovata';d.attiva=id;}))toast('Visita attivata');}
+  if(await mutate('Riattivata visita: '+v.nome,d=>{if(!d.visite.some(x=>x.id===id))return'Non trovata';d.attiva=id;})){S.evForm=null;toast('Visita attivata');}}
 async function delVisit(id){const v=S.data.visite.find(x=>x.id===id);if(!confirm(`Eliminare definitivamente “${v.nome}” e i suoi ${v.bookings.length} appuntamenti dallo storico?`))return;
   if(await mutate('Eliminata visita: '+v.nome,d=>{d.visite=d.visite.filter(x=>x.id!==id);}))toast('Eliminata');}
 function downloadCsv(){
   const d=S.data,q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
-  const rows=[['Visita','Sorvegliante','Data','Mezza giornata','Orario','Luogo','Fratello','Servizio di campo','Visite ulteriori','Studi biblici','Pubblicazione','Lezione','Paragrafo','Note','Prenotato il']];
+  const rows=[['Visita','Sorvegliante','Data','Mezza giornata','Orario','Luogo','Con','Fratello/Sorella','Telefono','Servizio di campo','Visite ulteriori','Studi biblici','Pubblicazione','Lezione','Paragrafo','Note','Prenotato il']];
   d.visite.forEach(v=>[...v.bookings].sort((a,b)=>(a.date+a.slot).localeCompare(b.date+b.slot)).forEach(b=>{
     const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{},m=b.motivi||[],st=b.studi?.length?b.studi:[{}];
-    st.forEach(x=>rows.push([v.nome,v.sorvegliante,b.date,slotName(b.slot),s.orario,s.luogo,userName(d,b),m.includes('campo')?'sì':'',m.includes('ulteriori')?'sì':'',m.includes('studi')?'sì':'',x.pub,x.lez,x.par,b.note,(b.at||'').slice(0,10)]));}));
+    st.forEach(x=>rows.push([v.nome,v.sorvegliante,b.date,slotName(b.slot),s.orario,s.luogo,b.con==='M'?'Moglie':'Sorvegliante',userName(d,b),userTel(d,b),m.includes('campo')?'sì':'',m.includes('ulteriori')?'sì':'',m.includes('studi')?'sì':'',x.pub,x.lez,x.par,b.note,(b.at||'').slice(0,10)]));}));
   const csv='﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='storico-visite-sorvegliante-'+todayStr()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
@@ -842,10 +993,12 @@ function admSettings(){
   <div class="card"><h2>Regole di prenotazione</h2>
     <label>Titolo dell'app</label><input id="st_tit" value="${esc(st.titolo)}">
     <label>Congregazione</label><input id="st_cong" value="${esc(st.congregazione)}">
-    <div class="row2"><div><label>Appuntamenti per mezza giornata (predefinito)</label><input id="st_cap" type="number" min="1" max="20" value="${esc(st.capDefault)}"></div>
+    <div class="row2"><div><label>Appuntamenti per mezza giornata con il sorvegliante</label><input id="st_cap" type="number" min="1" max="20" value="${esc(st.capDefault)}"></div>
+    <div><label>Appuntamenti per mezza giornata con la moglie</label><input id="st_capm" type="number" min="1" max="20" value="${esc(st.capMoglie)}"></div></div>
+    <div class="row2">
     <div><label>Uscite massime per fratello in una visita (0 = nessun limite)</label><input id="st_max" type="number" min="0" max="20" value="${esc(st.maxPerUser)}"></div></div>
     <label class="chk" style="margin-top:14px"><input type="checkbox" id="st_names" ${st.mostraNomi?'checked':''}> Mostra a tutti i nomi di chi ha prenotato</label>
-    <p class="muted">Motivi, studi biblici e note li vedono solo chi ha prenotato e gli amministratori.</p>
+    <p class="muted">Telefono, motivi, studi biblici e note li vedono solo chi ha prenotato e gli amministratori.</p>
     <label>Indirizzo dei dati dell'app Gruppi di servizio</label><input id="st_gurl" value="${esc(st.gruppiUrl)}" autocapitalize="off">
     <button class="btn full" onclick="saveSettings()">Salva</button></div>
   <div class="card"><h2>Password della congregazione</h2>
@@ -864,7 +1017,7 @@ function admSettings(){
 }
 async function saveSettings(){
   const v={titolo:$('#st_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#st_cong').value.trim(),
-    capDefault:Math.max(1,Math.min(20,parseInt($('#st_cap').value)||1)),maxPerUser:Math.max(0,Math.min(20,parseInt($('#st_max').value)||0)),
+    capDefault:Math.max(1,Math.min(20,parseInt($('#st_cap').value)||1)),capMoglie:Math.max(1,Math.min(20,parseInt($('#st_capm').value)||1)),maxPerUser:Math.max(0,Math.min(20,parseInt($('#st_max').value)||0)),
     mostraNomi:$('#st_names').checked,gruppiUrl:$('#st_gurl').value.trim()||GRUPPI_URL_DEFAULT};
   if(await mutate('Impostazioni aggiornate',d=>{Object.assign(d.settings,v);}))toast('Impostazioni salvate ✓');
 }

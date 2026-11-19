@@ -8,15 +8,18 @@ App per prenotare le uscite in servizio con il sorvegliante di circoscrizione du
 
 **Fratelli** (vedono solo la pagina delle prenotazioni)
 - Aprono il link di invito, scelgono il proprio nome e creano un PIN personale (4–6 cifre)
-- Prenotano una mezza giornata libera e indicano il motivo, anche più di uno: *servizio di campo*, *visite ulteriori*, *studi biblici*
+- Scelgono se uscire **con il sorvegliante** o **con sua moglie** e prenotano una mezza giornata libera
+- Inseriscono il proprio numero di telefono (resta salvato per le volte successive)
+- Indicano il motivo, anche più di uno: *servizio di campo*, *visite ulteriori*, *studi biblici*
 - Per gli studi biblici indicano pubblicazione, lezione e paragrafo (anche più studi)
 - Possono modificare o annullare la propria prenotazione
 
 **Amministratore** (pulsante ⚙︎ Gestione)
-- **Giorni**: aggiunge i giorni della visita, indica per ogni mattina/pomeriggio se il sorvegliante esce, quanti appuntamenti può prendere, orario e luogo. Se non esce scrive il motivo (es. riunione con gli anziani)
-- **Fratelli**: importa l'elenco dall'app *Gruppi di servizio* oppure lo scrive a mano. Può azzerare un PIN e nominare altri amministratori
-- **Riepilogo**: programma completo con motivi e studi, da copiare o mandare su WhatsApp al sorvegliante. Mostra anche chi non ha ancora prenotato
-- **Visite**: apre o chiude le prenotazioni e crea una **nuova visita**. La precedente va nello storico; può copiare orari e luoghi
+- **Giorni**: aggiunge i giorni della visita e indica per ogni mattina/pomeriggio orario, luogo, se escono il sorvegliante e la moglie e quanti appuntamenti può prendere ciascuno
+- **Eventi**: adunanza con i pionieri regolari, adunanza con anziani e servitori di ministero, mezza giornata libera o altri eventi, per mattina, pomeriggio, tutto il giorno o sera. Si indica chi è impegnato (sorvegliante, moglie o entrambi) e in quelle mezze giornate non si possono prendere appuntamenti con lui/lei
+- **Fratelli**: importa l'elenco dall'app *Gruppi di servizio* oppure lo scrive a mano, aggiunge o corregge i numeri di telefono, azzera un PIN e nomina altri amministratori
+- **Riepilogo**: programma completo con eventi, telefoni, motivi e studi, da copiare o mandare su WhatsApp al sorvegliante. Mostra anche chi non ha ancora prenotato
+- **Visite**: dati del sorvegliante e della moglie (nome e telefono), apertura e chiusura delle prenotazioni, creazione di una **nuova visita**. La precedente va nello storico; può copiare orari, luoghi ed eventi
 - **Storico**: tutte le visite passate, le uscite di ogni fratello ed export in Excel (CSV)
 - **Impostazioni**: link di invito, numero di appuntamenti predefinito, uscite massime per fratello, password, token GitHub
 
