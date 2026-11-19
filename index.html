@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Visita del sorvegliante – Prenotazioni</title>
+<meta name="theme-color" content="#1f4e5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Visita Sorv.">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#1c2630;--muted:#66727e;--line:#e1e6eb;--pri:#1f4e5f;--pri2:#2b6c82;--ok:#2e7d4f;--okbg:#e7f4ec;--warn:#9a5b00;--warnbg:#fff4e0;--err:#b3261e;--errbg:#fdecea;--off:#eef0f2;--r:14px}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:12px 16px calc(12px);padding-top:max(12px,env(safe-area-inset-top));box-shadow:0 2px 8px rgba(0,0,0,.15)}
+header .row{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto}
+header h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+header small{display:block;font-weight:400;opacity:.8;font-size:13px}
+header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:10px;padding:8px 10px;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+h2{font-size:18px;margin:0 0 10px}
+h3{font-size:16px;margin:0 0 8px}
+p{margin:6px 0}
+.muted{color:var(--muted);font-size:14px}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid #cdd5dc;border-radius:10px;background:#fff;color:var(--ink)}
+input[type=checkbox]{width:auto;transform:scale(1.25);margin-right:8px;vertical-align:middle}
+textarea{min-height:90px;resize:vertical}
+button{font:inherit;cursor:pointer}
+.btn{display:inline-block;border:0;border-radius:10px;padding:11px 16px;background:var(--pri);color:#fff;font-weight:600;text-align:center;text-decoration:none}
+.btn.sec{background:#e4ebf0;color:var(--pri)}
+.btn.ok{background:var(--ok)}
+.btn.danger{background:var(--errbg);color:var(--err)}
+.btn.sm{padding:7px 11px;font-size:14px;font-weight:600}
+.btn.full{width:100%;margin-top:14px}
+.btn:disabled{opacity:.5}
+.row2{display:flex;gap:10px;flex-wrap:wrap}.row2>*{flex:1;min-width:120px}
+.slot{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+.slot.off{background:var(--off);color:var(--muted)}
+.slot.mine{border-color:var(--ok);background:var(--okbg)}
+.slot .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.slot .name{font-weight:700}
+.pill{display:inline-block;font-size:13px;padding:3px 9px;border-radius:99px;background:#e4ebf0;color:var(--pri);font-weight:600;white-space:nowrap}
+.pill.full{background:var(--errbg);color:var(--err)}
+.pill.free{background:var(--okbg);color:var(--ok)}
+.pill.off{background:#e1e4e7;color:var(--muted)}
+.who{margin:8px 0 0;padding:0;list-style:none}
+.who li{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px dashed var(--line);font-size:15px}
+.who li:first-child{border-top:0}
+.x{border:0;background:none;color:var(--err);font-size:20px;line-height:1;padding:0 6px}
+.actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.banner{border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:15px}
+.banner.info{background:#e6f0f4;color:var(--pri)}
+.banner.warn{background:var(--warnbg);color:var(--warn)}
+.banner.err{background:var(--errbg);color:var(--err)}
+.banner.ok{background:var(--okbg);color:var(--ok)}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:-2px 0 14px;padding-bottom:2px}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 14px;font-size:14px;white-space:nowrap;color:var(--ink)}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.list .it{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.list .it:first-child{border-top:0}
+.list .it .grow{flex:1;min-width:0}
+.dayedit{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
+.dayedit .hd{display:flex;justify-content:space-between;align-items:center}
+.slotedit{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}
+.slotedit .row2 label{margin-top:6px}
+.chk{display:flex;align-items:center;color:var(--ink);font-size:15px;margin:6px 0}
+code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;word-break:break-all}
+.mono{background:#f0f3f5;border-radius:8px;padding:10px;display:block}
+#toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(150%);background:#1c2630;color:#fff;padding:12px 18px;border-radius:12px;max-width:92vw;transition:transform .25s;z-index:20;font-size:15px}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--err)}
+.spin{position:fixed;inset:0;background:rgba(255,255,255,.5);display:none;align-items:center;justify-content:center;z-index:15}
+.spin.show{display:flex}
+.spin div{width:38px;height:38px;border:4px solid #cfd8de;border-top-color:var(--pri);border-radius:50%;animation:r .8s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+.center{text-align:center}
+.install{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--pri2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.install img{width:44px;height:44px;border-radius:10px;flex:none}
+.install .grow{flex:1;font-size:14px;line-height:1.3}
+.install .x{color:var(--muted)}
+.steps{margin:10px 0 0;padding-left:22px}.steps li{margin:8px 0}
+.ios-share{display:inline-block;width:18px;height:18px;vertical-align:-3px}
+.sheetbg{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:12;display:none;align-items:flex-end;justify-content:center}
+.sheetbg.show{display:flex}
+.sheet{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:600px){.sheetbg{align-items:center}.sheet{border-radius:18px}}
+.opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px;font-size:16px;color:var(--ink)}
+.opt input{margin:0}
+.opt.on{border-color:var(--pri2);background:#eef5f8}
+.study{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;background:#fafbfc}
+.study .row2>div{min-width:90px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#e4ebf0;color:var(--pri);margin:2px 4px 0 0;font-weight:600}
+.det{font-size:13px;color:var(--muted);margin-top:2px}
+
+</style>
+</head>
+<body>
+<header><div class="row" id="hdr"><h1>Prenotazioni servizio</h1></div></header>
+<main id="app"><div class="card center muted">Caricamento…</div></main>
+<div id="toast"></div>
+<div class="spin" id="spin"><div></div></div>
+<div class="sheetbg" id="sheetbg" onclick="if(event.target===this)closeSheet()"><div class="sheet" id="sheet"></div></div>
+<script>
+'use strict';
+/* =====================================================================
+   Visita del sorvegliante – prenotazioni delle uscite in servizio
+   App statica per GitHub Pages. I dati stanno in dati.json nello stesso
+   repository, CIFRATI con la password della congregazione (AES-GCM,
+   chiave da PBKDF2), come l'app "Gruppi di servizio". Anche il token
+   GitHub che serve per salvare è cifrato nello stesso file.
+   ===================================================================== */
+const SLOTS=[['M','Mattina'],['P','Pomeriggio']];
+const MOTIVI=[['campo','Servizio di campo'],['ulteriori','Visite ulteriori'],['studi','Studi biblici']];
+const FORMATO='visita-sorvegliante-cifrato', ITER=310000;
+const GRUPPI_URL_DEFAULT='https://lucioros.github.io/gruppiservizio/dati.json';
+const LS_PW='cov_pw', LS_SES='cov_ses', LS_DEMO='cov_demo_file', LS_DEMOFLAG='cov_demo';
+const POLL_MS=45000;
+
+/* repository: ricavato dall'indirizzo del sito (utente.github.io/repository) */
+function ghConf(){
+  const c={owner:'',repo:'',branch:'main',path:'dati.json'};
+  if(window.COV_CONFIG) Object.assign(c,window.COV_CONFIG);
+  if(!c.owner && location.hostname.endsWith('.github.io')){
+    c.owner=location.hostname.split('.')[0];
+    c.repo=location.pathname.split('/').filter(Boolean)[0] || (c.owner+'.github.io');
+  }
+  return c;
+}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
+function lsSet(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+const S={gh:ghConf(), demo:lsGet(LS_DEMOFLAG)===true, key:null, file:null, sha:null, etag:null, token:null,
+  data:null, user:null, ses:lsGet(LS_SES), view:'home', tab:'giorni', draftDays:null, sheet:null, imp:null,
+  histOpen:null, histUser:'', busy:false, polling:false};
+
+/* ---------- utilità ---------- */
+function toast(m,k){const t=$('#toast');t.textContent=m;t.className='show '+(k||'');clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='',3500);}
+function spin(on){$('#spin').classList.toggle('show',!!on);}
+const te=new TextEncoder(), td=new TextDecoder();
+const toB64=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s);};
+const fromB64=b=>Uint8Array.from(atob(b.replace(/\s/g,'')),c=>c.charCodeAt(0));
+const b64url=s=>toB64(te.encode(s)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64url=s=>td.decode(fromB64(s.replace(/-/g,'+').replace(/_/g,'/')));
+async function deriveKey(pw,salt,iter){
+  const base=await crypto.subtle.importKey('raw',te.encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encObj(key,obj){const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,te.encode(JSON.stringify(obj)));return{iv:toB64(iv),ct:toB64(new Uint8Array(ct))};}
+async function decObj(key,e){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(e.iv)},key,fromB64(e.ct));return JSON.parse(td.decode(pt));}
+async function sha256(s){const h=await crypto.subtle.digest('SHA-256',te.encode(s));return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+const pinHash=(id,pin)=>sha256('cov|'+id+'|'+pin);
+function parseDate(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+function ymd(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+const todayStr=()=>ymd(new Date());
+const fmtDay=(s,o)=>{const t=parseDate(s).toLocaleDateString('it-IT',o||{weekday:'long',day:'numeric',month:'long'});return t.charAt(0).toUpperCase()+t.slice(1);};
+const fmtShort=s=>parseDate(s).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+const slotName=k=>(SLOTS.find(x=>x[0]===k)||[,k])[1];
+const motivoName=k=>(MOTIVI.find(x=>x[0]===k)||[,k])[1];
+const byName=(a,b)=>a.name.localeCompare(b.name,'it',{sensitivity:'base'});
+
+/* ---------- dati ---------- */
+function normalize(d){
+  d=d||{}; d.v=1;
+  d.settings=Object.assign({titolo:'Visita del sorvegliante di circoscrizione',congregazione:'',capDefault:2,maxPerUser:1,mostraNomi:true,gruppiUrl:GRUPPI_URL_DEFAULT},d.settings||{});
+  d.users=Array.isArray(d.users)?d.users:[];
+  d.visite=Array.isArray(d.visite)?d.visite:[];
+  d.visite.forEach(v=>{v.days=v.days||[];v.bookings=v.bookings||[];if(v.aperto===undefined)v.aperto=true;});
+  if(!d.visite.some(v=>v.id===d.attiva)) d.attiva=d.visite.length?d.visite[d.visite.length-1].id:null;
+  return d;
+}
+const V=d=>(d||S.data).visite.find(v=>v.id===(d||S.data).attiva)||null;
+const sortedDays=v=>[...(v?.days||[])].sort((a,b)=>a.date.localeCompare(b.date));
+const slotBookings=(v,date,k)=>v.bookings.filter(b=>b.date===date&&b.slot===k);
+const userBookings=(v,id)=>v?v.bookings.filter(b=>b.userId===id):[];
+const slotCap=(d,s)=>Math.max(1,Number(s.cap??d.settings.capDefault)||1);
+const userName=(d,b)=>d.users.find(u=>u.id===b.userId)?.name||b.userName||'(non più in elenco)';
+function visitRange(v){const ds=sortedDays(v);if(!ds.length)return'nessun giorno';const a=ds[0].date,b=ds[ds.length-1].date;return a===b?fmtShort(a):fmtShort(a)+' – '+fmtShort(b);}
+
+/* ---------- archivio (GitHub o demo locale) ---------- */
+const apiUrl=()=>`https://api.github.com/repos/${S.gh.owner}/${S.gh.repo}/contents/${S.gh.path}`;
+function ghH(extra){return Object.assign({Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:'Bearer '+S.token},extra||{});}
+async function httpErr(r){let m='';try{m=(await r.json()).message||'';}catch{}
+  const e=new Error(r.status===401?'Il token di GitHub non è valido o è scaduto: l\'amministratore deve aggiornarlo in Gestione → Impostazioni.':
+    r.status===403?'GitHub ha rifiutato la richiesta (permessi o troppe richieste). Riprova tra poco.':
+    r.status===404?'Repository o file non trovato su GitHub.':'Errore GitHub '+r.status+(m?': '+m:''));e.status=r.status;return e;}
+async function fetchFile(){
+  if(S.demo){const f=lsGet(LS_DEMO);return f?{file:f.file,sha:String(f.v)}:null;}
+  if(S.token){
+    const h=ghH(); if(S.etag&&S.file)h['If-None-Match']=S.etag;
+    const r=await fetch(apiUrl()+'?ref='+S.gh.branch,{headers:h,cache:'no-store'});
+    if(r.status===304)return{file:S.file,sha:S.sha,same:true};
+    if(r.status===404)return null;
+    if(!r.ok)throw await httpErr(r);
+    const j=await r.json(); S.etag=r.headers.get('ETag');
+    return{file:JSON.parse(td.decode(fromB64(j.content))),sha:j.sha};
+  }
+  const r=await fetch(S.gh.path+'?t='+Date.now(),{cache:'no-store'});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error('Sito non raggiungibile ('+r.status+')');
+  return{file:await r.json(),sha:null};
+}
+async function putFile(file,sha,msg,token){
+  if(S.demo){const cur=lsGet(LS_DEMO);if(cur&&sha!==String(cur.v)){const e=new Error('conflict');e.status=409;throw e;}
+    const v=(cur?cur.v:0)+1;lsSet(LS_DEMO,{v,file});return String(v);}
+  const t=token||S.token;
+  const body={message:msg,branch:S.gh.branch,content:toB64(te.encode(JSON.stringify(file)))};if(sha)body.sha=sha;
+  const r=await fetch(apiUrl(),{method:'PUT',headers:Object.assign(ghH({'Content-Type':'application/json'}),{Authorization:'Bearer '+t}),body:JSON.stringify(body)});
+  if(!r.ok)throw await httpErr(r);
+  const j=await r.json(); S.etag=null; return j.content.sha;
+}
+function passwordChanged(){ // un altro ha cambiato la password: bisogna rientrare
+  lsSet(LS_PW,null); S.key=null; S.data=null; S.user=null; renderUnlock('La password della congregazione è stata cambiata. Inserisci quella nuova.');
+}
+/* modifica sicura: rilegge, applica, salva; se due salvano insieme si riprova */
+async function mutate(msg,fn){
+  if(S.busy)return false;
+  if(!S.token&&!S.demo){toast('Il salvataggio non è attivo: avvisa l\'amministratore.','err');return false;}
+  S.busy=true; spin(true);
+  try{
+    for(let i=0;i<6;i++){
+      const rem=await fetchFile(); if(!rem)throw new Error('Archivio non trovato');
+      if(rem.file.kdf.salt!==S.file.kdf.salt){passwordChanged();return false;}
+      const base=rem.same?S.data:normalize(await decObj(S.key,rem.file.dati));
+      S.data=base; S.file=rem.file; S.sha=rem.sha;
+      const d=structuredClone(base), res=fn(d);
+      if(typeof res==='string'){toast(res,'err');return false;}
+      normalize(d);
+      const file=Object.assign({},rem.file,{dati:await encObj(S.key,d),aggiornato:new Date().toISOString()});
+      try{S.sha=await putFile(file,rem.sha,msg);S.file=file;S.data=d;return true;}
+      catch(e){if(e.status===409||e.status===422){S.etag=null;await sleep(400+Math.random()*800*(i+1));continue;}throw e;}
+    }
+    throw new Error('Salvataggio non riuscito, riprova.');
+  }catch(e){toast(e.message,'err');return false;}
+  finally{S.busy=false;spin(false);if(S.data){resolveUser();render();}}
+}
+async function refresh(silent){
+  if(S.busy||!S.key)return;
+  try{
+    const rem=await fetchFile(); if(!rem||rem.same)return;
+    if(rem.file.kdf.salt!==S.file.kdf.salt)return passwordChanged();
+    S.data=normalize(await decObj(S.key,rem.file.dati)); S.file=rem.file; S.sha=rem.sha;
+    if(rem.file.token){try{S.token=await decObj(S.key,rem.file.token);}catch{}}
+    resolveUser(); if(!isEditing())render();
+    if(!silent)toast('Aggiornato');
+  }catch(e){if(!silent)toast(e.message,'err');}
+}
+function isEditing(){const a=document.activeElement;return S.sheet||S.draftDays||(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.closest('#app'));}
+
+/* ---------- avvio ---------- */
+async function boot(){
+  const m=location.hash.match(/[#&]p=([^&]+)/);
+  if(m){try{lsSet(LS_PW,unb64url(m[1]));}catch{} history.replaceState(null,'',location.pathname+location.search);}
+  if(!S.demo&&!S.gh.owner){header();return renderNoRepo();}
+  spin(true);
+  let rem; try{rem=await fetchFile();}catch(e){spin(false);header();return renderError(e.message);}
+  spin(false);
+  if(!rem){header();return renderInit();}
+  S.file=rem.file; S.sha=rem.sha;
+  const pw=lsGet(LS_PW);
+  if(pw){ if(await unlock(pw,true)) return; }
+  renderUnlock();
+}
+async function unlock(pw,quiet){
+  spin(true);
+  try{
+    const f=S.file; const key=await deriveKey(pw,fromB64(f.kdf.salt),f.kdf.iter);
+    let data; try{data=await decObj(key,f.dati);}catch{ if(!quiet)toast('Password errata','err'); lsSet(LS_PW,null); return false; }
+    S.key=key; S.data=normalize(data);
+    if(f.token){try{S.token=await decObj(key,f.token);}catch{S.token=null;}}
+    if(S.token&&!S.demo){ try{const fr=await fetchFile(); if(fr){ if(fr.file.kdf.salt!==f.kdf.salt){S.token=null;} else {S.file=fr.file;S.sha=fr.sha;S.data=normalize(await decObj(key,fr.file.dati));}}}catch(e){toast(e.message,'err');} }
+    lsSet(LS_PW,pw);
+    resolveUser(); render(); startPolling(); return true;
+  }finally{spin(false);}
+}
+function startPolling(){
+  if(S.polling)return; S.polling=true;
+  setInterval(()=>{if(document.visibilityState==='visible')refresh(true);},POLL_MS);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh(true);});
+}
+function resolveUser(){
+  const u=S.data&&S.ses?S.data.users.find(x=>x.id===S.ses.id):null;
+  S.user=(u&&u.pin&&u.pin===S.ses.pin)?u:null;
+  if(!S.user||!S.user.admin){if(S.view==='admin')S.view='home';}
+}
+
+/* ---------- intestazione e navigazione ---------- */
+function header(){
+  const st=S.data?.settings||{}, v=S.data?V():null;
+  const sub=[st.congregazione,v?.nome].filter(Boolean).map(esc).join(' · ');
+  let b='';
+  if(S.user){
+    b+=`<button onclick="refresh()" aria-label="Aggiorna">⟳</button>`;
+    if(S.user.admin)b+=S.view==='admin'?`<button onclick="go('home')">Prenotazioni</button>`:`<button onclick="go('admin')">⚙︎ Gestione</button>`;
+    b+=`<button onclick="logout()">Esci</button>`;
+  }
+  $('#hdr').innerHTML=`<h1>${esc(st.titolo||'Visita del sorvegliante')}${sub?`<small>${sub}</small>`:''}</h1>${b}`;
+}
+function unsavedOk(){return !S.draftDays||confirm('Ci sono modifiche ai giorni non salvate. Uscire comunque?');}
+function go(v){if(!unsavedOk())return;S.draftDays=null;S.imp=null;S.view=v;render();scrollTo(0,0);refresh(true);}
+function setTab(t){if(t!==S.tab&&!unsavedOk())return;S.draftDays=null;S.imp=null;S.tab=t;render();scrollTo(0,0);refresh(true);}
+function render(){
+  header();
+  if(!S.data)return;
+  if(!S.user)return renderLogin();
+  if(S.view==='admin'&&S.user.admin)return renderAdmin();
+  renderHome();
+}
+
+/* ---------- schermate iniziali ---------- */
+function renderNoRepo(){
+  $('#app').innerHTML=`<div class="card"><h2>App non ancora pubblicata</h2>
+  <p>Questa pagina funziona quando è pubblicata su GitHub Pages (indirizzo tipo <code>utente.github.io/repository</code>).</p>
+  <button class="btn sec full" onclick="startDemo()">Prova in modalità demo (dati solo su questo dispositivo)</button></div>`;
+}
+function renderError(msg){
+  $('#app').innerHTML=`<div class="banner err">${esc(msg)}</div><div class="card"><button class="btn full" onclick="location.reload()">Riprova</button></div>`;
+}
+function startDemo(){lsSet(LS_DEMOFLAG,true);location.reload();}
+function exitDemo(){if(!confirm('Uscire dalla demo e cancellare i dati di prova?'))return;lsSet(LS_DEMO,null);lsSet(LS_DEMOFLAG,null);lsSet(LS_PW,null);lsSet(LS_SES,null);location.reload();}
+function renderUnlock(msg){
+  header();
+  $('#app').innerHTML=`${msg?`<div class="banner warn">${esc(msg)}</div>`:''}
+  <div class="card"><h2>Accesso</h2>
+  <p class="muted">Inserisci la password della congregazione che ti è stata comunicata.</p>
+  <label>Password</label><input id="u_pw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doUnlock()">
+  <button class="btn full" id="u_btn" onclick="doUnlock()">Apri</button></div>
+  ${S.demo?`<div class="banner warn">Modalità demo. <a href="#" onclick="exitDemo();return false">Esci dalla demo</a></div>`:''}`;
+  setTimeout(()=>$('#u_pw')?.focus(),50);
+}
+async function doUnlock(){const pw=$('#u_pw').value;if(!pw)return;$('#u_btn').disabled=true;$('#u_btn').textContent='Apertura…';
+  if(!await unlock(pw)){$('#u_btn').disabled=false;$('#u_btn').textContent='Apri';}}
+
+function renderInit(){
+  $('#app').innerHTML=`
+  ${S.demo?'<div class="banner warn">Modalità demo: i dati restano solo su questo dispositivo.</div>':`<div class="banner info">Prima configurazione dell'archivio su <b>${esc(S.gh.owner)}/${esc(S.gh.repo)}</b>.</div>`}
+  <div class="card"><h2>Configurazione iniziale</h2>
+    <label>Titolo</label><input id="i_tit" value="Visita del sorvegliante di circoscrizione">
+    <label>Congregazione</label><input id="i_cong" placeholder="es. Congregazione Roma Centro">
+    <label>Nome della prima visita</label><input id="i_vis" placeholder="es. Visita di dicembre 2026">
+    <label>Nome del sorvegliante</label><input id="i_sorv" placeholder="es. Fratello Bianchi">
+  </div>
+  <div class="card"><h2>Password della congregazione</h2>
+    <p class="muted">Cifra tutti i dati. La comunicherai ai fratelli insieme al link. Almeno 8 caratteri.</p>
+    <label>Password</label><input id="i_pw" type="password" autocomplete="new-password">
+    <label>Ripeti la password</label><input id="i_pw2" type="password" autocomplete="new-password">
+  </div>
+  ${S.demo?'':`<div class="card"><h2>Token GitHub</h2>
+    <p class="muted">Fine-grained token con accesso solo al repository <b>${esc(S.gh.repo)}</b> e permesso <b>Contents: Read and write</b>. Viene salvato cifrato: i fratelli non dovranno fare niente.</p>
+    <label>Token</label><input id="i_tok" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false"></div>`}
+  <div class="card"><h2>Il tuo profilo di amministratore</h2>
+    <label>Il tuo nome</label><input id="i_name" placeholder="Nome e cognome">
+    <label>Il tuo PIN (4–6 cifre)</label><input id="i_pin" type="password" inputmode="numeric" maxlength="6">
+    <label>Ripeti il PIN</label><input id="i_pin2" type="password" inputmode="numeric" maxlength="6">
+    <button class="btn full" onclick="doInit()">Crea archivio</button>
+    ${S.demo?'<button class="btn sec full" onclick="exitDemo()">Esci dalla demo</button>':'<button class="btn sec full" onclick="startDemo()">Prova prima in modalità demo</button>'}
+  </div>`;
+}
+async function doInit(){
+  const pw=$('#i_pw').value,name=$('#i_name').value.trim(),pin=$('#i_pin').value,tok=S.demo?null:$('#i_tok').value.trim();
+  if(pw.length<8)return toast('La password deve avere almeno 8 caratteri','err');
+  if(pw!==$('#i_pw2').value)return toast('Le due password non coincidono','err');
+  if(!name)return toast('Inserisci il tuo nome','err');
+  if(!/^\d{4,6}$/.test(pin))return toast('Il PIN deve avere da 4 a 6 cifre','err');
+  if(pin!==$('#i_pin2').value)return toast('I due PIN non coincidono','err');
+  if(!S.demo&&!tok)return toast('Inserisci il token GitHub','err');
+  spin(true);
+  try{
+    if(!S.demo){const r=await fetch(`https://api.github.com/repos/${S.gh.owner}/${S.gh.repo}`,{headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+tok}});
+      if(!r.ok)throw new Error('Token non valido o senza accesso al repository ('+r.status+')');}
+    const id=uid(), vid=uid();
+    const data=normalize({settings:{titolo:$('#i_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#i_cong').value.trim()},
+      users:[{id,name,pin:await pinHash(id,pin),admin:true}],
+      visite:[{id:vid,nome:$('#i_vis').value.trim()||'Visita del sorvegliante',sorvegliante:$('#i_sorv').value.trim(),aperto:true,nota:'',creata:new Date().toISOString(),days:[],bookings:[]}],attiva:vid});
+    const salt=crypto.getRandomValues(new Uint8Array(16)), key=await deriveKey(pw,salt,ITER);
+    const file={formato:FORMATO,v:1,kdf:{salt:toB64(salt),iter:ITER},dati:await encObj(key,data),token:tok?await encObj(key,tok):null,aggiornato:new Date().toISOString()};
+    S.token=tok; S.sha=await putFile(file,null,'Visita sorvegliante: creato archivio',tok);
+    S.file=file; S.key=key; S.data=data; lsSet(LS_PW,pw);
+    S.ses={id,pin:data.users[0].pin}; lsSet(LS_SES,S.ses); S.view='admin'; S.tab='giorni';
+    resolveUser(); render(); startPolling(); toast('Archivio creato ✓ Ora aggiungi i giorni della visita');
+  }catch(e){toast(e.message,'err');}finally{spin(false);}
+}
+
+/* ---------- accesso personale (nome + PIN) ---------- */
+function renderLogin(){
+  const users=[...S.data.users].sort(byName);
+  $('#app').innerHTML=installBanner()+`<div class="card"><h2>Chi sei?</h2>
+  ${users.length?`<label>Il tuo nome</label><select id="l_user" onchange="loginPick()"><option value="">— Seleziona —</option>${users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select><div id="l_box"></div>`
+  :'<p class="muted">L\'elenco dei fratelli è vuoto.</p>'}</div>
+  ${S.demo?`<div class="banner warn">Modalità demo. <a href="#" onclick="exitDemo();return false">Esci dalla demo</a></div>`:''}`;
+}
+function loginPick(){
+  const u=S.data.users.find(x=>x.id===$('#l_user').value),box=$('#l_box');
+  if(!u){box.innerHTML='';return;}
+  box.innerHTML=u.pin?`<label>PIN</label><input id="l_pin" type="password" inputmode="numeric" maxlength="6" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn full" onclick="doLogin()">Entra</button><p class="muted" style="margin-top:12px">PIN dimenticato? Chiedi all'amministratore di azzerarlo.</p>`
+   :`<div class="banner info" style="margin-top:12px">Primo accesso: scegli un PIN personale di 4–6 cifre. Ti servirà per entrare da qualsiasi telefono o computer.</div>
+    <label>Nuovo PIN</label><input id="l_pin" type="password" inputmode="numeric" maxlength="6">
+    <label>Ripeti il PIN</label><input id="l_pin2" type="password" inputmode="numeric" maxlength="6" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn full" onclick="doLogin()">Crea PIN ed entra</button>`;
+  setTimeout(()=>$('#l_pin')?.focus(),50);
+}
+async function doLogin(){
+  const id=$('#l_user').value,pin=$('#l_pin').value,u=S.data.users.find(x=>x.id===id);if(!u)return;
+  if(!/^\d{4,6}$/.test(pin))return toast('Il PIN deve avere da 4 a 6 cifre','err');
+  const h=await pinHash(id,pin);
+  if(!u.pin){
+    if(pin!==$('#l_pin2').value)return toast('I due PIN non coincidono','err');
+    const ok=await mutate('PIN impostato: '+u.name,d=>{const x=d.users.find(y=>y.id===id);if(!x)return'Nome non più in elenco';if(x.pin)return'Il PIN è già stato impostato: inseriscilo per entrare';x.pin=h;});
+    if(!ok)return;
+  }else if(u.pin!==h)return toast('PIN errato','err');
+  S.ses={id,pin:h};lsSet(LS_SES,S.ses);S.view='home';resolveUser();render();toast('Benvenuto, '+(S.user.nome||S.user.name));
+}
+function logout(){if(!unsavedOk())return;S.ses=null;lsSet(LS_SES,null);S.user=null;S.view='home';S.draftDays=null;render();}
+
+/* ---------- regole di prenotazione ---------- */
+function canBook(d,userId,date,k,asAdmin){
+  const v=V(d); if(!v)return'Nessuna visita attiva';
+  const s=v.days.find(x=>x.date===date)?.slots?.[k];
+  if(!s||!s.on)return'Questa mezza giornata non è disponibile';
+  if(!asAdmin){if(!v.aperto)return'Le prenotazioni sono chiuse';if(date<todayStr())return'Questo giorno è già passato';}
+  const list=slotBookings(v,date,k);
+  if(list.some(b=>b.userId===userId))return'Prenotazione già presente';
+  if(list.length>=slotCap(d,s))return'Posti esauriti: qualcuno ha appena prenotato';
+  const max=Number(d.settings.maxPerUser)||0;
+  if(!asAdmin&&max>0&&userBookings(v,userId).length>=max)return max===1?'Puoi prenotare una sola uscita':`Puoi prenotare al massimo ${max} uscite`;
+  return null;
+}
+async function unbook(id){
+  const v=V(), b=v.bookings.find(x=>x.id===id); if(!b)return;
+  const mine=b.userId===S.user.id; if(!mine&&!S.user.admin)return;
+  const nm=userName(S.data,b), q=`${fmtDay(b.date)} (${slotName(b.slot).toLowerCase()})`;
+  if(!confirm(mine?`Annullare la tua prenotazione di ${q}?`:`Rimuovere ${nm} da ${q}?`))return;
+  if(await mutate(`Annullata ${b.date} ${slotName(b.slot)}: ${nm}`,d=>{
+    const vv=V(d),i=vv.bookings.findIndex(x=>x.id===id); if(i<0)return'Prenotazione già annullata';
+    if(!S.user.admin&&!vv.aperto)return'Le prenotazioni sono chiuse: contatta l\'amministratore';
+    vv.bookings.splice(i,1);
+  })){closeSheet();toast('Prenotazione annullata');}
+}
+
+/* ---------- modulo di prenotazione (motivo, studi biblici) ---------- */
+function openBook(date,k,userId){
+  userId=userId||S.user.id;
+  S.sheet={mode:'new',date,k,userId,motivi:[],studi:[],note:''};renderSheet();
+}
+function openEdit(id){
+  const b=V().bookings.find(x=>x.id===id); if(!b)return;
+  S.sheet={mode:'edit',id,date:b.date,k:b.slot,userId:b.userId,motivi:[...(b.motivi||[])],studi:structuredClone(b.studi||[]),note:b.note||''};renderSheet();
+}
+function closeSheet(){S.sheet=null;$('#sheetbg').classList.remove('show');}
+function pubSuggestions(){const set=new Set();S.data.visite.forEach(v=>v.bookings.forEach(b=>(b.studi||[]).forEach(s=>s.pub&&set.add(s.pub.trim()))));return[...set].sort((a,b)=>a.localeCompare(b,'it'));}
+function renderSheet(){
+  const sh=S.sheet; if(!sh)return closeSheet(); if(sh.mode==='info')return;
+  const v=V(), s=v?.days.find(x=>x.date===sh.date)?.slots?.[sh.k]||{};
+  const other=sh.userId!==S.user.id, who=S.data.users.find(u=>u.id===sh.userId)?.name||'';
+  const hasStudi=sh.motivi.includes('studi');
+  if(hasStudi&&!sh.studi.length)sh.studi.push({pub:'',lez:'',par:''});
+  let h=`<h2>${sh.mode==='new'?'Prenota':'Modifica'} l'uscita</h2>
+  <p><b>${esc(fmtDay(sh.date))}</b> · ${slotName(sh.k)}${s.orario?' · ore '+esc(s.orario):''}</p>
+  ${s.luogo?`<p class="muted">📍 ${esc(s.luogo)}</p>`:''}${other?`<p>Per: <b>${esc(who)}</b></p>`:''}
+  <label>Per cosa vuoi uscire con il sorvegliante? (anche più di una)</label>
+  ${MOTIVI.map(([k,l])=>`<label class="opt${sh.motivi.includes(k)?' on':''}"><input type="checkbox" ${sh.motivi.includes(k)?'checked':''} onchange="shMot('${k}',this.checked)">${l}</label>`).join('')}`;
+  if(hasStudi){
+    h+=`<label style="margin-top:16px">Studi biblici</label>`;
+    sh.studi.forEach((st,i)=>{h+=`<div class="study">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Studio ${i+1}</b>${sh.studi.length>1?`<button class="btn sm danger" onclick="shDelStudio(${i})">Rimuovi</button>`:''}</div>
+      <label>Pubblicazione che state studiando</label><input list="pubs" value="${esc(st.pub)}" placeholder="Titolo della pubblicazione" oninput="S.sheet.studi[${i}].pub=this.value">
+      <div class="row2"><div><label>Lezione</label><input inputmode="numeric" value="${esc(st.lez)}" placeholder="es. 12" oninput="S.sheet.studi[${i}].lez=this.value"></div>
+      <div><label>Paragrafo</label><input inputmode="numeric" value="${esc(st.par)}" placeholder="es. 3" oninput="S.sheet.studi[${i}].par=this.value"></div></div></div>`;});
+    h+=`<button class="btn sm sec" style="margin-top:10px" onclick="shAddStudio()">+ Aggiungi un altro studio</button>
+    <datalist id="pubs">${pubSuggestions().map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`;
+  }
+  h+=`<label style="margin-top:16px">Note per il sorvegliante (facoltative)</label>
+  <textarea id="sh_note" placeholder="es. porto la macchina, appuntamento alle 10 con…" oninput="S.sheet.note=this.value">${esc(sh.note)}</textarea>
+  <button class="btn ok full" onclick="shSave()">${sh.mode==='new'?'Conferma prenotazione':'Salva modifiche'}</button>
+  ${sh.mode==='edit'?`<button class="btn danger full" onclick="unbook('${sh.id}')">Annulla la prenotazione</button>`:''}
+  <button class="btn sec full" onclick="closeSheet()">Chiudi</button>`;
+  $('#sheet').innerHTML=h; $('#sheetbg').classList.add('show');
+}
+function shMot(k,on){const m=S.sheet.motivi;if(on&&!m.includes(k))m.push(k);if(!on)S.sheet.motivi=m.filter(x=>x!==k);
+  S.sheet.motivi.sort((a,b)=>MOTIVI.findIndex(x=>x[0]===a)-MOTIVI.findIndex(x=>x[0]===b));renderSheet();}
+function shAddStudio(){S.sheet.studi.push({pub:'',lez:'',par:''});renderSheet();}
+function shDelStudio(i){S.sheet.studi.splice(i,1);renderSheet();}
+async function shSave(){
+  const sh=S.sheet; if(!sh.motivi.length)return toast('Scegli almeno un motivo','err');
+  let studi=[];
+  if(sh.motivi.includes('studi')){
+    studi=sh.studi.map(s=>({pub:s.pub.trim(),lez:String(s.lez).trim(),par:String(s.par).trim()})).filter(s=>s.pub||s.lez||s.par);
+    if(!studi.length)return toast('Indica la pubblicazione dello studio biblico','err');
+    if(studi.some(s=>!s.pub))return toast('Indica la pubblicazione per ogni studio','err');
+  }
+  const det={motivi:[...sh.motivi],studi,note:sh.note.trim()};
+  const who=S.data.users.find(u=>u.id===sh.userId)?.name||'';
+  let ok;
+  if(sh.mode==='new'){
+    const asAdmin=sh.userId!==S.user.id&&S.user.admin;
+    ok=await mutate(`Prenotazione ${sh.date} ${slotName(sh.k)}: ${who}`,d=>{
+      const e=canBook(d,sh.userId,sh.date,sh.k,asAdmin); if(e)return e;
+      V(d).bookings.push(Object.assign({id:uid(),date:sh.date,slot:sh.k,userId:sh.userId,userName:who,at:new Date().toISOString(),by:S.user.id},det));
+    });
+  }else{
+    ok=await mutate(`Modificata prenotazione ${sh.date} ${slotName(sh.k)}: ${who}`,d=>{
+      const b=V(d).bookings.find(x=>x.id===sh.id); if(!b)return'Prenotazione non trovata';
+      if(b.userId!==S.user.id&&!S.user.admin)return'Operazione non consentita';
+      Object.assign(b,det,{mod:new Date().toISOString()});
+    });
+  }
+  if(ok){closeSheet();toast(sh.mode==='new'?'Prenotazione confermata ✓':'Modifiche salvate ✓');}
+  else if(sh.mode==='new'&&S.data&&canBook(S.data,sh.userId,sh.date,sh.k,sh.userId!==S.user.id&&S.user.admin))closeSheet();
+}
+function detailHtml(b){
+  let h=(b.motivi||[]).map(m=>`<span class="tag">${esc(motivoName(m))}</span>`).join('');
+  (b.studi||[]).forEach(s=>{h+=`<div class="det">📖 ${esc(s.pub)}${s.lez?' · lez. '+esc(s.lez):''}${s.par?' · par. '+esc(s.par):''}</div>`;});
+  if(b.note)h+=`<div class="det">✎ ${esc(b.note)}</div>`;
+  return h;
+}
+function detailText(b){
+  const p=[(b.motivi||[]).map(motivoName).join(', ')];
+  (b.studi||[]).forEach(s=>p.push('studio: '+s.pub+(s.lez?' lez. '+s.lez:'')+(s.par?' par. '+s.par:'')));
+  if(b.note)p.push('note: '+b.note);
+  return p.filter(Boolean).join('; ');
+}
+
+/* ---------- pagina delle prenotazioni (quella che vedono i fratelli) ---------- */
+function renderHome(){
+  const d=S.data, st=d.settings, me=S.user, adm=me.admin, v=V(d);
+  let h=installBanner();
+  if(S.demo)h+=`<div class="banner warn">Modalità demo: i dati restano solo su questo dispositivo.</div>`;
+  if(!S.token&&!S.demo)h+=`<div class="banner err">Il salvataggio non è attivo: avvisa l'amministratore.</div>`;
+  if(!v){$('#app').innerHTML=h+`<div class="card center muted">Nessuna visita in programma.${adm?' Crea una visita da <b>⚙︎ Gestione → Visite</b>.':''}</div>`;return;}
+  if(!v.aperto)h+=`<div class="banner warn">Le prenotazioni sono chiuse.</div>`;
+  if(v.nota)h+=`<div class="banner info">${esc(v.nota).replace(/\n/g,'<br>')}</div>`;
+  const mine=userBookings(v,me.id).sort((a,b)=>(a.date+a.slot).localeCompare(b.date+b.slot));
+  const max=Number(st.maxPerUser)||0;
+  h+=`<div class="card"><h2>Ciao ${esc(me.nome||me.name.split(' ').slice(-1)[0])}</h2>
+  <p class="muted">${esc(v.nome||'')}${v.sorvegliante?' · sorvegliante: '+esc(v.sorvegliante):''}</p>`;
+  if(mine.length){
+    h+=`<p>Le tue uscite:</p><ul class="who">${mine.map(b=>{const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{};
+      return `<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date))}</b> · ${slotName(b.slot)}${s.orario?' · ore '+esc(s.orario):''}${s.luogo?'<br><span class="muted">📍 '+esc(s.luogo)+'</span>':''}<br>${detailHtml(b)}</span>
+      <button class="btn sm sec" onclick="openEdit('${b.id}')">Modifica</button></li>`;}).join('')}</ul>`;
+  }else h+=`<p>Non hai ancora prenotato. Scegli qui sotto una mezza giornata libera.</p>`;
+  if(max>0)h+=`<p class="muted">${max===1?'Ogni fratello può prenotare una sola uscita.':`Ogni fratello può prenotare fino a ${max} uscite.`}</p>`;
+  h+=`</div>`;
+  const days=sortedDays(v), today=todayStr(), people=[...d.users].sort(byName);
+  if(!days.length)h+=`<div class="card center muted">${adm?'Nessun giorno inserito: vai su <b>⚙︎ Gestione → Giorni</b>.':'I giorni non sono ancora stati pubblicati.'}</div>`;
+  for(const day of days){
+    const past=day.date<today;
+    h+=`<div class="card"${past?' style="opacity:.6"':''}><h3>${esc(fmtDay(day.date))}</h3>`;
+    for(const[k,label]of SLOTS){
+      const s=day.slots?.[k]; if(!s)continue;
+      if(!s.on){h+=`<div class="slot off"><div class="top"><span class="name">${label}</span><span class="pill off">Non disponibile</span></div>${s.motivo?`<p class="muted">${esc(s.motivo)}</p>`:''}</div>`;continue;}
+      const list=slotBookings(v,day.date,k),cap=slotCap(d,s),free=cap-list.length,isMine=list.some(b=>b.userId===me.id);
+      h+=`<div class="slot${isMine?' mine':''}"><div class="top"><span class="name">${label}${s.orario?' · '+esc(s.orario):''}</span>${free<=0?'<span class="pill full">Completo</span>':`<span class="pill free">${free===1?'1 posto libero':free+' posti liberi'}</span>`}</div>`;
+      if(s.luogo)h+=`<p class="muted">📍 ${esc(s.luogo)}</p>`;
+      if(s.info)h+=`<p class="muted">${esc(s.info)}</p>`;
+      const show=st.mostraNomi||adm;
+      if(list.length){
+        h+=`<ul class="who">${list.map(b=>{const mineB=b.userId===me.id;
+          if(!show&&!mineB)return'';
+          return `<li style="align-items:flex-start"><span>${mineB?'<b>Tu</b>':esc(userName(d,b))}${(mineB||adm)?'<br>'+detailHtml(b):''}</span>
+          ${(mineB||adm)?`<button class="btn sm sec" onclick="openEdit('${b.id}')">${mineB?'Modifica':'Dettagli'}</button>`:''}</li>`;}).join('')}</ul>`;
+        if(!show)h+=`<p class="muted">${list.length} su ${cap} prenotati</p>`;
+      }
+      h+=`<div class="actions">`;
+      if(!isMine&&!past&&free>0&&v.aperto){const e=canBook(d,me.id,day.date,k,false);
+        h+=e?(/prenotare/.test(e)?'':`<span class="muted">${esc(e)}</span>`):`<button class="btn sm ok" onclick="openBook('${day.date}','${k}')">Prenota</button>`;}
+      if(adm&&free>0){const av=people.filter(u=>!list.some(b=>b.userId===u.id)&&u.id!==me.id);
+        if(av.length)h+=`<select style="flex:1;min-width:150px;padding:7px" onchange="if(this.value)openBook('${day.date}','${k}',this.value);this.value=''"><option value="">+ Prenota per un fratello…</option>${av.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>`;}
+      h+=`</div></div>`;
+    }
+    h+=`</div>`;
+  }
+  $('#app').innerHTML=h;
+}
+
+/* ---------- gestione (solo amministratori) ---------- */
+function renderAdmin(){
+  const tabs=[['giorni','Giorni'],['fratelli','Fratelli'],['riepilogo','Riepilogo'],['visite','Visite'],['storico','Storico'],['impostazioni','Impostazioni']];
+  let h=`<div class="tabs">${tabs.map(([k,l])=>`<button class="${S.tab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('')}</div>`;
+  if(S.demo)h+=`<div class="banner warn">Modalità demo.</div>`;
+  h+=({giorni:admDays,fratelli:admUsers,riepilogo:admSummary,visite:admVisits,storico:admHistory,impostazioni:admSettings})[S.tab]();
+  $('#app').innerHTML=h;
+}
+function needVisit(){return `<div class="card center muted">Nessuna visita attiva. Creane una nella scheda <b>Visite</b>.<br><br><button class="btn" onclick="setTab('visite')">Vai a Visite</button></div>`;}
+
+/* --- Giorni --- */
+function admDays(){
+  const d=S.data, v=V(d); if(!v)return needVisit();
+  const days=S.draftDays||sortedDays(v);
+  let h=`<div class="card"><h2>Aggiungi i giorni della visita</h2><p class="muted">${esc(v.nome)}</p>
+    <div class="row2"><div><label>Dal</label><input type="date" id="g_from"></div><div><label>Al</label><input type="date" id="g_to"></div></div>
+    <label class="chk"><input type="checkbox" id="g_nomon" checked> Escludi il lunedì</label>
+    <div class="row2"><div><label>Orario mattina</label><input id="g_om" value="9:30"></div><div><label>Orario pomeriggio</label><input id="g_op" value="15:30"></div></div>
+    <button class="btn full" onclick="addDays()">Aggiungi</button></div>`;
+  if(S.draftDays)h+=`<div class="banner warn">Modifiche non ancora salvate. <button class="btn sm" onclick="saveDays()">Salva ora</button></div>`;
+  h+=`<div class="card"><h2>Mezze giornate</h2><p class="muted">Togli la spunta dove il sorvegliante non esce in servizio (riunioni, visite, altri impegni) e scrivi il motivo. Per le altre indica quanti appuntamenti può prendere.</p>`;
+  if(!days.length)h+=`<p class="muted">Nessun giorno ancora.</p>`;
+  days.forEach((day,i)=>{
+    h+=`<div class="dayedit"><div class="hd"><h3 style="margin:0">${esc(fmtDay(day.date))}</h3><button class="btn sm danger" onclick="delDay(${i})">Elimina</button></div>`;
+    for(const[k,label]of SLOTS){const s=day.slots[k]||{on:false},n=slotBookings(v,day.date,k).length;
+      h+=`<div class="slotedit"><label class="chk"><input type="checkbox" ${s.on?'checked':''} onchange="dd(${i},'${k}','on',this.checked)"><b>${label}</b>&nbsp;– esce in servizio${n?` <span class="pill" style="margin-left:6px">${n} prenot.</span>`:''}</label>
+      ${s.on?`<div class="row2"><div><label>Appuntamenti</label><input type="number" min="1" max="20" value="${esc(s.cap??d.settings.capDefault)}" oninput="dd(${i},'${k}','cap',this.value)"></div>
+        <div><label>Orario</label><input value="${esc(s.orario||'')}" placeholder="9:30" oninput="dd(${i},'${k}','orario',this.value)"></div></div>
+        <label>Luogo d'incontro</label><input value="${esc(s.luogo||'')}" placeholder="es. Sala del Regno" oninput="dd(${i},'${k}','luogo',this.value)">
+        <label>Note (facoltative)</label><input value="${esc(s.info||'')}" placeholder="es. testimonianza pubblica" oninput="dd(${i},'${k}','info',this.value)">`
+      :`<label>Motivo / impegno</label><input value="${esc(s.motivo||'')}" placeholder="es. Riunione con gli anziani" oninput="dd(${i},'${k}','motivo',this.value)">`}</div>`;}
+    h+=`</div>`;
+  });
+  if(days.length)h+=`<button class="btn full" onclick="saveDays()">Salva giorni</button>`;
+  return h+`</div>`;
+}
+function draft(){if(!S.draftDays)S.draftDays=structuredClone(sortedDays(V()));return S.draftDays;}
+function dd(i,k,f,v){
+  const clean=!S.draftDays, days=draft(); days[i].slots[k]=days[i].slots[k]||{on:false}; days[i].slots[k][f]=v;
+  if(f==='on'){if(v&&days[i].slots[k].cap==null)days[i].slots[k].cap=S.data.settings.capDefault;return render();}
+  if(clean){let pos=null;try{pos=document.activeElement.selectionStart;}catch{}render();
+    const el=document.querySelector(`[oninput^="dd(${i},'${k}','${f}'"]`);if(el){el.focus();try{if(pos!=null)el.setSelectionRange(pos,pos);}catch{}}}
+}
+function addDays(){
+  const f=$('#g_from').value,t=$('#g_to').value||f,noMon=$('#g_nomon').checked;
+  if(!f)return toast('Scegli la data iniziale','err'); if(t<f)return toast('La data finale è prima di quella iniziale','err');
+  const days=draft(),cap=S.data.settings.capDefault,om=$('#g_om').value.trim(),op=$('#g_op').value.trim();let n=0;
+  for(let dt=parseDate(f);ymd(dt)<=t&&n<31;dt.setDate(dt.getDate()+1)){const s=ymd(dt);
+    if(noMon&&dt.getDay()===1)continue; if(days.some(x=>x.date===s))continue;
+    days.push({date:s,slots:{M:{on:true,cap,orario:om,luogo:''},P:{on:true,cap,orario:op,luogo:''}}});n++;}
+  days.sort((a,b)=>a.date.localeCompare(b.date)); render();
+  toast(n?`Aggiunti ${n} giorni: controlla e premi “Salva giorni”`:'Nessun nuovo giorno da aggiungere');
+}
+function delDay(i){const days=draft(),n=V().bookings.filter(b=>b.date===days[i].date).length;
+  if(n&&!confirm(`Questo giorno ha ${n} prenotazioni, che verranno cancellate al salvataggio. Continuare?`))return; days.splice(i,1); render();}
+async function saveDays(){
+  const days=structuredClone(S.draftDays||sortedDays(V()));
+  days.forEach(day=>SLOTS.forEach(([k])=>{const s=day.slots[k];if(s&&s.on)s.cap=Math.max(1,Math.min(20,parseInt(s.cap)||1));}));
+  const valid=new Set();days.forEach(day=>SLOTS.forEach(([k])=>{if(day.slots[k]?.on)valid.add(day.date+'|'+k);}));
+  const lost=V().bookings.filter(b=>!valid.has(b.date+'|'+b.slot));
+  if(lost.length&&!confirm(`${lost.length} prenotazioni riguardano mezze giornate eliminate o non più disponibili e verranno cancellate. Continuare?`))return;
+  const vid=S.data.attiva;
+  if(await mutate('Aggiornati i giorni della visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';v.days=days;v.bookings=v.bookings.filter(b=>valid.has(b.date+'|'+b.slot));})){S.draftDays=null;render();toast('Giorni salvati ✓');}
+}
+
+/* --- Fratelli (con importazione da "Gruppi di servizio") --- */
+function admUsers(){
+  const d=S.data, v=V(d), users=[...d.users].sort(byName);
+  let h=`<div class="card"><h2>Importa da “Gruppi di servizio”</h2>`;
+  const im=S.imp;
+  if(!im){h+=`<p class="muted">Prende l'elenco dei proclamatori dalla tua app dei gruppi di servizio.</p><button class="btn full" onclick="impStart()">Importa elenco</button>`;}
+  else if(im.step==='pw'){h+=`${im.err?`<div class="banner err">${esc(im.err)}</div>`:''}<label>Password dell'app Gruppi di servizio</label>
+    <input id="imp_pw" type="password" onkeydown="if(event.key==='Enter')impLoad(this.value)"><div class="actions"><button class="btn sm" onclick="impLoad($('#imp_pw').value)">Apri elenco</button><button class="btn sm sec" onclick="S.imp=null;render()">Annulla</button></div>`;}
+  else{
+    const vis=im.list.filter(p=>im.inatt||!p.inatt), groups=[...new Set(vis.map(p=>p.gruppo))];
+    const nSel=vis.filter(p=>im.sel.has(p.gsId)&&!p.already).length;
+    h+=`<label class="chk"><input type="checkbox" ${im.inatt?'checked':''} onchange="S.imp.inatt=this.checked;render()"> Mostra anche gli inattivi</label>
+    <div class="actions"><button class="btn sm sec" onclick="impAll(true)">Seleziona tutti</button><button class="btn sm sec" onclick="impAll(false)">Nessuno</button></div>`;
+    groups.forEach(g=>{h+=`<p style="margin-top:14px"><b>${esc(g)}</b></p>`;
+      vis.filter(p=>p.gruppo===g).forEach(p=>{h+=`<label class="chk"><input type="checkbox" ${p.already?'checked disabled':im.sel.has(p.gsId)?'checked':''} onchange="impSel('${p.gsId}',this.checked)">${esc(p.label)}${p.inatt?' <span class="tag">inattivo</span>':''}${p.already?' <span class="muted">&nbsp;già in elenco</span>':''}</label>`;});});
+    h+=`<button class="btn full" ${nSel?'':'disabled'} onclick="impDo()">Importa ${nSel} nominativi</button><button class="btn sec full" onclick="S.imp=null;render()">Chiudi</button>`;
+  }
+  h+=`</div><div class="card"><h2>Aggiungi a mano</h2><p class="muted">Un nome per riga.</p>
+    <textarea id="u_new" placeholder="Rossi Mario&#10;Bianchi Luca"></textarea><button class="btn full" onclick="addUsers()">Aggiungi</button></div>
+    <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN.</p><div class="list">
+    ${users.map(u=>{const n=userBookings(v,u.id).length;return`<div class="it"><div class="grow"><b>${esc(u.name)}</b>${u.admin?' <span class="pill">Amministratore</span>':''}<br>
+      <span class="muted">${u.gruppo?esc(u.gruppo)+' · ':''}${u.pin?'PIN impostato':'Non ha ancora fatto l\'accesso'}${v?' · '+n+' prenot.':''}</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px">${u.id===S.user.id?'<span class="muted">(tu)</span>':`
+      ${u.pin?`<button class="btn sm sec" onclick="resetPin('${u.id}')">Azzera PIN</button>`:''}
+      <button class="btn sm sec" onclick="toggleAdmin('${u.id}')">${u.admin?'Togli admin':'Rendi admin'}</button>
+      <button class="btn sm danger" onclick="delUser('${u.id}')">Elimina</button>`}</div></div>`;}).join('')}</div></div>`;
+  return h;
+}
+function impStart(){S.imp={step:'pw'};render();const pw=lsGet(LS_PW);if(pw)impLoad(pw,true);else setTimeout(()=>$('#imp_pw')?.focus(),50);}
+async function impLoad(pw,quiet){
+  if(!pw)return; spin(true);
+  try{
+    const url=S.data.settings.gruppiUrl||GRUPPI_URL_DEFAULT;
+    const r=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error('Non riesco ad aprire l\'app Gruppi di servizio ('+r.status+'). Controlla l\'indirizzo in Impostazioni.');
+    const f=await r.json(); const key=await deriveKey(pw,fromB64(f.kdf.salt),f.kdf.iter);
+    let g; try{g=await decObj(key,f.dati);}catch{S.imp={step:'pw',err:quiet?'Inserisci la password dell\'app Gruppi di servizio.':'Password errata.'};return;}
+    const ord=g.ordine||'cn', gname=id=>{const i=(g.gruppi||[]).findIndex(x=>x.id===id);return i<0?'Senza gruppo':((g.gruppi[i].nome)||('Gruppo '+(i+1)));};
+    const have=S.data.users;
+    const list=(g.persone||[]).map(p=>{const label=(ord==='nc'?[p.nome,p.cognome]:[p.cognome,p.nome]).filter(Boolean).join(' ').trim();
+      return{gsId:p.id,nome:p.nome||'',cognome:p.cognome||'',label,gruppo:gname(p.gruppo),inatt:!!p.inatt,
+        already:have.some(u=>u.gsId===p.id||u.name.toLowerCase()===label.toLowerCase())};}).filter(p=>p.label)
+      .sort((a,b)=>a.label.localeCompare(b.label,'it',{sensitivity:'base'}));
+    const order=[...(g.gruppi||[]).map((x,i)=>x.nome||('Gruppo '+(i+1))),'Senza gruppo'];
+    list.sort((a,b)=>order.indexOf(a.gruppo)-order.indexOf(b.gruppo));
+    S.imp={step:'list',list,inatt:false,sel:new Set(list.filter(p=>!p.inatt&&!p.already).map(p=>p.gsId))};
+  }catch(e){S.imp={step:'pw',err:e.message};}
+  finally{spin(false);render();}
+}
+function impSel(id,on){on?S.imp.sel.add(id):S.imp.sel.delete(id);render();}
+function impAll(on){S.imp.list.filter(p=>!p.already&&(S.imp.inatt||!p.inatt)).forEach(p=>on?S.imp.sel.add(p.gsId):S.imp.sel.delete(p.gsId));render();}
+async function impDo(){
+  const pick=S.imp.list.filter(p=>S.imp.sel.has(p.gsId)&&!p.already&&(S.imp.inatt||!p.inatt));let n=0;
+  if(await mutate(`Importati fratelli da Gruppi di servizio (${pick.length})`,d=>{
+    for(const p of pick){if(d.users.some(u=>u.gsId===p.gsId||u.name.toLowerCase()===p.label.toLowerCase()))continue;
+      d.users.push({id:uid(),name:p.label,nome:p.nome,cognome:p.cognome,gsId:p.gsId,gruppo:p.gruppo,pin:null,admin:false});n++;}
+    if(!n)return'Nessun nuovo nominativo da importare';
+  })){S.imp=null;render();toast(`Importati ${n} nominativi ✓`);}
+}
+async function addUsers(){
+  const names=$('#u_new').value.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+  if(!names.length)return toast('Scrivi almeno un nome','err');let n=0;
+  if(await mutate(`Aggiunti fratelli (${names.length})`,d=>{const have=new Set(d.users.map(u=>u.name.toLowerCase()));
+    for(const nm of names){if(have.has(nm.toLowerCase()))continue;have.add(nm.toLowerCase());d.users.push({id:uid(),name:nm,pin:null,admin:false});n++;}
+    if(!n)return'Questi nomi sono già in elenco';}))toast(`Aggiunti ${n} ✓`);
+}
+async function resetPin(id){const u=S.data.users.find(x=>x.id===id);if(!confirm(`Azzerare il PIN di ${u.name}? Al prossimo accesso ne sceglierà uno nuovo.`))return;
+  if(await mutate('PIN azzerato: '+u.name,d=>{const x=d.users.find(y=>y.id===id);if(!x)return'Non trovato';x.pin=null;}))toast('PIN azzerato');}
+async function toggleAdmin(id){const u=S.data.users.find(x=>x.id===id);if(!u.admin&&!confirm(`Dare a ${u.name} l'accesso alla gestione?`))return;
+  await mutate('Ruolo cambiato: '+u.name,d=>{const x=d.users.find(y=>y.id===id);if(!x)return'Non trovato';x.admin=!x.admin;});}
+async function delUser(id){const u=S.data.users.find(x=>x.id===id),n=userBookings(V(),id).length;
+  if(!confirm(`Eliminare ${u.name} dall'elenco?${n?` Verranno cancellate le sue ${n} prenotazioni della visita attuale.`:''} Lo storico delle visite passate resta.`))return;
+  if(await mutate('Eliminato: '+u.name,d=>{d.users=d.users.filter(x=>x.id!==id);const v=V(d);if(v)v.bookings=v.bookings.filter(b=>b.userId!==id);}))toast('Eliminato');}
+
+/* --- Riepilogo della visita attiva --- */
+function visitText(d,v,withDetails){
+  let t=`*${v.nome||d.settings.titolo}*${v.sorvegliante?'\nSorvegliante: '+v.sorvegliante:''}${d.settings.congregazione?'\n'+d.settings.congregazione:''}\n`;
+  for(const day of sortedDays(v)){
+    t+=`\n*${fmtDay(day.date)}*\n`;
+    for(const[k,label]of SLOTS){const s=day.slots[k];if(!s)continue;
+      if(!s.on){t+=`${label}: non esce${s.motivo?' ('+s.motivo+')':''}\n`;continue;}
+      const list=slotBookings(v,day.date,k), cap=slotCap(d,s);
+      t+=`${label}${s.orario?' ore '+s.orario:''}${s.luogo?' – '+s.luogo:''}${list.length<cap?` [${cap-list.length===1?'1 posto libero':(cap-list.length)+' posti liberi'}]`:''}\n`;
+      list.forEach(b=>{t+=`  • ${userName(d,b)}${withDetails&&detailText(b)?' – '+detailText(b):''}\n`;});
+      if(!list.length)t+='  • nessuno\n';
+    }
+  }
+  return t;
+}
+function admSummary(){
+  const d=S.data,v=V(d);if(!v)return needVisit();
+  const booked=new Set(v.bookings.map(b=>b.userId)),none=d.users.filter(u=>!booked.has(u.id)).sort(byName);
+  let free=0,tot=0,cnt={campo:0,ulteriori:0,studi:0};
+  v.days.forEach(day=>SLOTS.forEach(([k])=>{const s=day.slots[k];if(s?.on){const c=slotCap(d,s);tot+=c;free+=Math.max(0,c-slotBookings(v,day.date,k).length);}}));
+  v.bookings.forEach(b=>(b.motivi||[]).forEach(m=>cnt[m]=(cnt[m]||0)+1));
+  const txt=visitText(d,v,true);
+  return `<div class="card"><h2>${esc(v.nome)}</h2>
+    <p><b>${v.bookings.length}</b> prenotazioni · <b>${free}</b> posti liberi su ${tot}</p>
+    <p class="muted">${MOTIVI.map(([k,l])=>`${l}: <b>${cnt[k]||0}</b>`).join(' · ')}</p>
+    <pre class="mono" style="white-space:pre-wrap;margin-top:10px">${esc(txt)}</pre>
+    <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,V(),true))">Copia</button>
+    <a class="btn sm ok" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">WhatsApp</a>
+    <button class="btn sm sec" onclick="copy(visitText(S.data,V(),false))">Copia senza dettagli</button></div></div>
+    <div class="card"><h2>Non hanno ancora prenotato (${none.length})</h2>${none.length?`<p>${none.map(u=>esc(u.name)).join(', ')}</p>`:'<p class="muted">Tutti hanno prenotato.</p>'}</div>`;
+}
+
+/* --- Visite: visita attiva e nuova visita --- */
+function admVisits(){
+  const d=S.data,v=V(d);
+  let h='';
+  if(v)h+=`<div class="card"><h2>Visita attiva</h2>
+    <label>Nome della visita</label><input id="v_nome" value="${esc(v.nome)}">
+    <label>Sorvegliante</label><input id="v_sorv" value="${esc(v.sorvegliante)}">
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="v_open" ${v.aperto?'checked':''}> Prenotazioni aperte</label>
+    <label>Avviso per i fratelli (facoltativo)</label><textarea id="v_nota" placeholder="es. Portate le pubblicazioni del mese">${esc(v.nota)}</textarea>
+    <p class="muted">${visitRange(v)} · ${v.bookings.length} prenotazioni</p>
+    <button class="btn full" onclick="saveVisit()">Salva</button></div>`;
+  h+=`<div class="card"><h2>Nuova visita</h2>
+    <p class="muted">Crea la prossima settimana di visita. ${v?'La visita attuale verrà chiusa e conservata nello <b>Storico</b>; ':''}l'elenco dei fratelli resta, le prenotazioni ripartono da zero.</p>
+    <label>Nome della visita</label><input id="n_nome" placeholder="es. Visita di marzo 2027">
+    <label>Sorvegliante</label><input id="n_sorv" value="${esc(v?.sorvegliante||'')}">
+    ${v?`<label class="chk" style="margin-top:12px"><input type="checkbox" id="n_copy"> Copia orari e luoghi dalla visita attuale (con le date spostate)</label>
+    <label>Primo giorno della nuova visita</label><input type="date" id="n_start">`:''}
+    <button class="btn ok full" onclick="newVisit()">Crea e attiva la nuova visita</button></div>`;
+  return h;
+}
+async function saveVisit(){
+  const vid=S.data.attiva,val={nome:$('#v_nome').value.trim()||'Visita',sorvegliante:$('#v_sorv').value.trim(),aperto:$('#v_open').checked,nota:$('#v_nota').value.trim()};
+  if(await mutate('Aggiornata la visita',d=>{const v=d.visite.find(x=>x.id===vid);if(!v)return'Visita non trovata';Object.assign(v,val);}))toast('Salvato ✓');
+}
+async function newVisit(){
+  const nome=$('#n_nome').value.trim(),sorv=$('#n_sorv').value.trim(),cp=$('#n_copy')?.checked,start=$('#n_start')?.value;
+  if(!nome)return toast('Dai un nome alla nuova visita','err');
+  const cur=V();let days=[];
+  if(cp){if(!start)return toast('Indica il primo giorno della nuova visita','err');
+    const old=sortedDays(cur);if(old.length){const off=Math.round((parseDate(start)-parseDate(old[0].date))/864e5);
+      days=old.map(x=>{const dt=parseDate(x.date);dt.setDate(dt.getDate()+off);return{date:ymd(dt),slots:structuredClone(x.slots)};});}}
+  if(!confirm(`Creare “${nome}” e renderla la visita attiva?${cur?` “${cur.nome}” andrà nello storico.`:''}`))return;
+  const id=uid();
+  if(await mutate('Nuova visita: '+nome,d=>{const old=V(d);if(old)old.aperto=false;
+    d.visite.push({id,nome,sorvegliante:sorv,aperto:true,nota:'',creata:new Date().toISOString(),days,bookings:[]});d.attiva=id;})){
+    S.tab='giorni';render();toast('Nuova visita creata ✓ Ora controlla i giorni');}
+}
+
+/* --- Storico di tutte le visite e degli appuntamenti --- */
+function admHistory(){
+  const d=S.data, vs=[...d.visite].sort((a,b)=>(sortedDays(b)[0]?.date||b.creata||'').localeCompare(sortedDays(a)[0]?.date||a.creata||''));
+  const all=[];vs.forEach(v=>v.bookings.forEach(b=>all.push({v,b})));
+  const names=[...new Set(all.map(x=>userName(d,x.b)))].sort((a,b)=>a.localeCompare(b,'it'));
+  let h=`<div class="card"><h2>Storico per fratello</h2>
+    <select onchange="S.histUser=this.value;render()"><option value="">— Scegli un nome —</option>${names.map(n=>`<option ${S.histUser===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
+  if(S.histUser){const mine=all.filter(x=>userName(d,x.b)===S.histUser).sort((a,b)=>b.b.date.localeCompare(a.b.date));
+    h+=`<p class="muted" style="margin-top:10px">${mine.length===1?'1 uscita':mine.length+' uscite'} con il sorvegliante</p><ul class="who">${mine.map(({v,b})=>`<li style="align-items:flex-start"><span><b>${esc(fmtDay(b.date,{weekday:'short',day:'numeric',month:'short',year:'numeric'}))}</b> · ${slotName(b.slot)}<br><span class="muted">${esc(v.nome)}${v.sorvegliante?' · '+esc(v.sorvegliante):''}</span><br>${detailHtml(b)}</span></li>`).join('')}</ul>`;}
+  h+=`<div class="actions"><button class="btn sm sec" onclick="downloadCsv()">Scarica tutto lo storico (Excel/CSV)</button></div></div>
+  <div class="card"><h2>Visite (${vs.length})</h2><div class="list">`;
+  vs.forEach(v=>{const act=v.id===d.attiva,open=S.histOpen===v.id;
+    h+=`<div class="it" style="display:block"><div style="display:flex;align-items:center;gap:8px"><div class="grow"><b>${esc(v.nome)}</b>${act?' <span class="pill free">attiva</span>':''}<br>
+      <span class="muted">${visitRange(v)}${v.sorvegliante?' · '+esc(v.sorvegliante):''} · ${v.bookings.length} appuntamenti</span></div>
+      <button class="btn sm sec" onclick="S.histOpen=${open?'null':`'${v.id}'`};render()">${open?'Chiudi':'Apri'}</button></div>
+      ${open?`<pre class="mono" style="white-space:pre-wrap;margin-top:10px">${esc(visitText(d,v,true))}</pre>
+      <div class="actions"><button class="btn sm" onclick="copy(visitText(S.data,S.data.visite.find(x=>x.id==='${v.id}'),true))">Copia</button>
+      ${act?'':`<button class="btn sm sec" onclick="activateVisit('${v.id}')">Rendi attiva</button><button class="btn sm danger" onclick="delVisit('${v.id}')">Elimina</button>`}</div>`:''}</div>`;});
+  return h+`</div></div>`;
+}
+async function activateVisit(id){const v=S.data.visite.find(x=>x.id===id);if(!confirm(`Rendere di nuovo attiva “${v.nome}”? I fratelli vedranno questa visita.`))return;
+  if(await mutate('Riattivata visita: '+v.nome,d=>{if(!d.visite.some(x=>x.id===id))return'Non trovata';d.attiva=id;}))toast('Visita attivata');}
+async function delVisit(id){const v=S.data.visite.find(x=>x.id===id);if(!confirm(`Eliminare definitivamente “${v.nome}” e i suoi ${v.bookings.length} appuntamenti dallo storico?`))return;
+  if(await mutate('Eliminata visita: '+v.nome,d=>{d.visite=d.visite.filter(x=>x.id!==id);}))toast('Eliminata');}
+function downloadCsv(){
+  const d=S.data,q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
+  const rows=[['Visita','Sorvegliante','Data','Mezza giornata','Orario','Luogo','Fratello','Servizio di campo','Visite ulteriori','Studi biblici','Pubblicazione','Lezione','Paragrafo','Note','Prenotato il']];
+  d.visite.forEach(v=>[...v.bookings].sort((a,b)=>(a.date+a.slot).localeCompare(b.date+b.slot)).forEach(b=>{
+    const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{},m=b.motivi||[],st=b.studi?.length?b.studi:[{}];
+    st.forEach(x=>rows.push([v.nome,v.sorvegliante,b.date,slotName(b.slot),s.orario,s.luogo,userName(d,b),m.includes('campo')?'sì':'',m.includes('ulteriori')?'sì':'',m.includes('studi')?'sì':'',x.pub,x.lez,x.par,b.note,(b.at||'').slice(0,10)]));}));
+  const csv='﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='storico-visite-sorvegliante-'+todayStr()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+
+/* --- Impostazioni generali, sicurezza e invito --- */
+function inviteLink(withPw){return location.origin+location.pathname+(withPw?'#p='+b64url(lsGet(LS_PW)||''):'');}
+function admSettings(){
+  const st=S.data.settings;
+  const link=inviteLink(false),linkPw=inviteLink(true);
+  const msg=`Per prenotare un'uscita in servizio con il sorvegliante di circoscrizione apri questo link, scegli il tuo nome e crea il tuo PIN. Puoi anche installarla come app sul telefono (pulsante “Installa”):\n${linkPw}`;
+  return `<div class="card"><h2>Invita i fratelli</h2>
+    <p>Il link qui sotto contiene già la password della congregazione: chi lo apre deve solo scegliere il suo nome e creare il PIN. Mandalo in privato o nel gruppo della congregazione, non pubblicarlo.</p>
+    <span class="mono">${esc(linkPw)}</span>
+    <div class="actions"><button class="btn sm" onclick="copy(inviteLink(true))">Copia link</button>
+    <a class="btn sm ok" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Invia su WhatsApp</a>
+    <button class="btn sm sec" onclick="copy(inviteLink(false))">Link senza password</button></div></div>
+  <div class="card"><h2>Regole di prenotazione</h2>
+    <label>Titolo dell'app</label><input id="st_tit" value="${esc(st.titolo)}">
+    <label>Congregazione</label><input id="st_cong" value="${esc(st.congregazione)}">
+    <div class="row2"><div><label>Appuntamenti per mezza giornata (predefinito)</label><input id="st_cap" type="number" min="1" max="20" value="${esc(st.capDefault)}"></div>
+    <div><label>Uscite massime per fratello in una visita (0 = nessun limite)</label><input id="st_max" type="number" min="0" max="20" value="${esc(st.maxPerUser)}"></div></div>
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="st_names" ${st.mostraNomi?'checked':''}> Mostra a tutti i nomi di chi ha prenotato</label>
+    <p class="muted">Motivi, studi biblici e note li vedono solo chi ha prenotato e gli amministratori.</p>
+    <label>Indirizzo dei dati dell'app Gruppi di servizio</label><input id="st_gurl" value="${esc(st.gruppiUrl)}" autocapitalize="off">
+    <button class="btn full" onclick="saveSettings()">Salva</button></div>
+  <div class="card"><h2>Password della congregazione</h2>
+    <p class="muted">Dopo il cambio, tutti dovranno inserire la nuova password (o aprire il nuovo link di invito).</p>
+    <label>Password attuale</label><input id="pw_old" type="password">
+    <label>Nuova password (almeno 8 caratteri)</label><input id="pw_new" type="password" autocomplete="new-password">
+    <label>Ripeti la nuova password</label><input id="pw_new2" type="password" autocomplete="new-password">
+    <button class="btn full" onclick="changePw()">Cambia password</button></div>
+  ${S.demo?'':`<div class="card"><h2>Salvataggio su GitHub</h2>
+    <p class="muted">${S.token?'Collegato':'Non collegato'} · repository <code>${esc(S.gh.owner)}/${esc(S.gh.repo)}</code>. Quando il token scade, creane uno nuovo e incollalo qui.</p>
+    <label>Nuovo token</label><input id="tk_new" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="btn full" onclick="changeToken()">Aggiorna token</button></div>`}
+  <div class="card"><h2>Questo dispositivo</h2>
+    <button class="btn sec full" onclick="downloadBackup()">Scarica un backup dei dati (non cifrato)</button>
+    ${S.demo?'<button class="btn danger full" onclick="exitDemo()">Esci dalla demo e cancella i dati di prova</button>':'<button class="btn danger full" onclick="forgetDevice()">Dimentica la password su questo dispositivo</button>'}</div>`;
+}
+async function saveSettings(){
+  const v={titolo:$('#st_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#st_cong').value.trim(),
+    capDefault:Math.max(1,Math.min(20,parseInt($('#st_cap').value)||1)),maxPerUser:Math.max(0,Math.min(20,parseInt($('#st_max').value)||0)),
+    mostraNomi:$('#st_names').checked,gruppiUrl:$('#st_gurl').value.trim()||GRUPPI_URL_DEFAULT};
+  if(await mutate('Impostazioni aggiornate',d=>{Object.assign(d.settings,v);}))toast('Impostazioni salvate ✓');
+}
+async function rekeyAndSave(newKey,salt,token,msg){
+  for(let i=0;i<5;i++){
+    const rem=await fetchFile(); const data=rem.same?S.data:normalize(await decObj(S.key,rem.file.dati));
+    const file={formato:FORMATO,v:1,kdf:{salt:toB64(salt),iter:ITER},dati:await encObj(newKey,data),token:token?await encObj(newKey,token):null,aggiornato:new Date().toISOString()};
+    try{S.sha=await putFile(file,rem.sha,msg,token);S.file=file;S.data=data;return;}
+    catch(e){if(e.status===409||e.status===422){S.etag=null;await sleep(600);continue;}throw e;}
+  }
+  throw new Error('Salvataggio non riuscito, riprova.');
+}
+async function changePw(){
+  const o=$('#pw_old').value,n=$('#pw_new').value;
+  if(n.length<8)return toast('La nuova password deve avere almeno 8 caratteri','err');
+  if(n!==$('#pw_new2').value)return toast('Le due password nuove non coincidono','err');
+  spin(true);
+  try{
+    const kOld=await deriveKey(o,fromB64(S.file.kdf.salt),S.file.kdf.iter);
+    try{await decObj(kOld,S.file.dati);}catch{throw new Error('La password attuale non è corretta');}
+    const salt=crypto.getRandomValues(new Uint8Array(16)),kNew=await deriveKey(n,salt,ITER);
+    await rekeyAndSave(kNew,salt,S.token,'Cambiata la password');
+    S.key=kNew; lsSet(LS_PW,n); render(); toast('Password cambiata ✓ Manda ai fratelli il nuovo link di invito');
+  }catch(e){toast(e.message,'err');}finally{spin(false);}
+}
+async function changeToken(){
+  const t=$('#tk_new').value.trim();if(!t)return toast('Incolla il nuovo token','err');
+  spin(true);
+  try{
+    const r=await fetch(`https://api.github.com/repos/${S.gh.owner}/${S.gh.repo}`,{headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+t}});
+    if(!r.ok)throw new Error('Token non valido o senza accesso al repository ('+r.status+')');
+    const old=S.token; S.token=t; S.etag=null;
+    try{await rekeyAndSave(S.key,fromB64(S.file.kdf.salt),t,'Aggiornato il token di salvataggio');}catch(e){S.token=old;throw e;}
+    render(); toast('Token aggiornato ✓');
+  }catch(e){toast(e.message,'err');}finally{spin(false);}
+}
+function downloadBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S.data,null,2)],{type:'application/json'}));
+  a.download='backup-visita-sorvegliante-'+todayStr()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+function forgetDevice(){if(!confirm('Togliere password e accesso da questo dispositivo?'))return;lsSet(LS_PW,null);lsSet(LS_SES,null);location.reload();}
+async function copy(t){try{await navigator.clipboard.writeText(t);toast('Copiato ✓');}catch{const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();document.execCommand('copy');x.remove();toast('Copiato ✓');}}
+
+
+/* ---------- installazione come app sul telefono ---------- */
+let installEvt=null;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const ua=navigator.userAgent;
+const isIOS=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isMobile=isIOS||/Android/i.test(ua);
+const inAppBrowser=/FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/i.test(ua);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(S.data&&!S.sheet&&!isEditing())render();});
+window.addEventListener('appinstalled',()=>{installEvt=null;lsSet('cov_inst_no',null);toast('App installata ✓ La trovi tra le app del telefono');render();});
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+function installBanner(){
+  if(isStandalone()||lsGet('cov_inst_no'))return'';
+  if(!installEvt&&!isMobile)return'';
+  return `<div class="install"><img src="icons/icon-192.png" alt=""><div class="grow"><b>Installa l'app sul telefono</b><br><span class="muted">Così la apri con un tocco, come le altre app.</span></div>
+  <button class="btn sm" onclick="doInstall()">Installa</button><button class="x" aria-label="Chiudi" onclick="lsSet('cov_inst_no',1);render()">×</button></div>`;
+}
+async function doInstall(){
+  if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;installEvt=null;if(r.outcome!=='accepted')render();return;}
+  const pw=lsGet(LS_PW);
+  const share='<svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+  let h='<h2>Installa l\'app</h2>';
+  if(inAppBrowser)h+=`<div class="banner warn">Stai usando il browser interno di un'altra app (per esempio WhatsApp). Apri prima questa pagina in ${isIOS?'<b>Safari</b>':'<b>Chrome</b>'}: tocca il menu ⋯ e scegli “Apri nel browser”.</div>`;
+  if(isIOS){
+    h+=`<ol class="steps"><li>Apri questa pagina con <b>Safari</b></li><li>Tocca il pulsante <b>Condividi</b> ${share} in basso (o in alto su iPad)</li><li>Scorri e scegli <b>Aggiungi alla schermata Home</b></li><li>Tocca <b>Aggiungi</b></li></ol>`;
+    if(pw)h+=`<div class="banner info" style="margin-top:12px">Al primo avvio l'app potrebbe chiederti di nuovo la password della congregazione: è <b>${esc(pw)}</b>. Poi scegli il tuo nome e inserisci il tuo PIN.</div>`;
+  }else{
+    h+=`<ol class="steps"><li>Apri questa pagina con <b>Chrome</b></li><li>Tocca il menu <b>⋮</b> in alto a destra</li><li>Scegli <b>Installa app</b> (oppure <b>Aggiungi a schermata Home</b>)</li><li>Conferma con <b>Installa</b></li></ol>
+    <p class="muted">Su Samsung Internet: menu ☰ → <b>Aggiungi pagina a</b> → <b>Schermata Home</b>.</p>`;
+  }
+  h+=`<button class="btn sec full" onclick="closeSheet()">Ho capito</button>`;
+  S.sheet={mode:'info'}; $('#sheet').innerHTML=h; $('#sheetbg').classList.add('show');
+}
+window.addEventListener('hashchange',()=>{if(/[#&]p=/.test(location.hash))location.reload();});
+boot();
+</script>
+</body>
+</html>
