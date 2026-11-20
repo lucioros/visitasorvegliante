@@ -1134,15 +1134,25 @@ function downloadCsv(){
 }
 
 /* --- Impostazioni generali, sicurezza e invito --- */
+function inviteMsg(link){
+  const pw=lsGet(LS_PW)||'';
+  return `Per prenotare un'uscita in servizio con il sorvegliante di circoscrizione apri questo link, scegli il tuo nome e crea il tuo PIN:
+${link}
+
+📲 Per averla come app sul telefono:
+• iPhone: apri il link con Safari (se si apre dentro WhatsApp tocca ⋯ e poi "Apri in Safari"), tocca il pulsante Condividi e scegli "Aggiungi alla schermata Home". Se l'app ti chiede la password della congregazione, è: ${pw}
+• Android: apri il link con Chrome e tocca "Installa" (oppure menu ⋮ → "Installa app").`;
+}
 function inviteLink(withPw){return location.origin+location.pathname+(withPw?'#p='+b64url(lsGet(LS_PW)||''):'');}
 function admSettings(){
   const st=S.data.settings;
   const link=inviteLink(false),linkPw=inviteLink(true);
-  const msg=`Per prenotare un'uscita in servizio con il sorvegliante di circoscrizione apri questo link, scegli il tuo nome e crea il tuo PIN. Puoi anche installarla come app sul telefono (pulsante “Installa”):\n${linkPw}`;
+  const msg=inviteMsg(linkPw);
   return `<div class="card"><h2>Invita i fratelli</h2>
     <p>Il link qui sotto contiene già la password della congregazione: chi lo apre deve solo scegliere il suo nome e creare il PIN. Mandalo in privato o nel gruppo della congregazione, non pubblicarlo.</p>
     <span class="mono">${esc(linkPw)}</span>
-    <div class="actions"><button class="btn sm" onclick="copy(inviteLink(true))">Copia link</button>
+    <details style="margin-top:10px"><summary class="muted">Vedi il messaggio che verrà inviato</summary><pre class="mono" style="white-space:pre-wrap;margin-top:8px">${esc(msg)}</pre></details>
+    <div class="actions"><button class="btn sm" onclick="copy(inviteMsg(inviteLink(true)))">Copia messaggio</button><button class="btn sm sec" onclick="copy(inviteLink(true))">Copia solo il link</button>
     <a class="btn sm ok" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Invia su WhatsApp</a>
     <button class="btn sm sec" onclick="copy(inviteLink(false))">Link senza password</button></div></div>
   <div class="card"><h2>Regole di prenotazione</h2>
