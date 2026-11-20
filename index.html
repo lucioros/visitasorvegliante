@@ -218,6 +218,8 @@ const conShort=p=>p==='M'?'moglie del sorvegliante':'sorvegliante';
 const chiText=e=>{const c=e.chi||[];return c.length===2?'Sorvegliante e moglie':c[0]==='M'?'Moglie del sorvegliante':c[0]==='S'?'Sorvegliante':'';};
 function validKeys(v){const set=new Set();v.days.forEach(day=>SLOTS.forEach(([k])=>PERS.forEach(p=>{if(available(v,day,k,p))set.add(day.date+'|'+k+'|'+p);})));return set;}
 const bKey=b=>b.date+'|'+b.slot+'|'+(b.con||'S');
+const tmin=t=>{const m=String(t||'').match(/(\d{1,2})\s*[:.,h]\s*(\d{2})?/);return m?(+m[1])*60+(+(m[2]||0)):null;};
+const evAfter=(e,s)=>{const a=tmin(e.orario),b=tmin(s?.orario);return a!=null&&b!=null&&a>b;}; // evento che inizia dopo l'incontro per il servizio
 const telOk=t=>String(t||'').replace(/\D/g,'').length>=6;
 function visitRange(v){const ds=sortedDays(v);if(!ds.length)return'nessun giorno';const a=ds[0].date,b=ds[ds.length-1].date;return a===b?fmtShort(a):fmtShort(a)+' – '+fmtShort(b);}
 
@@ -614,7 +616,7 @@ function renderHome(){
       h+=`<div class="slot${isMine?' mine':''}"><div class="top"><span class="name">${label}${s.orario?' · '+esc(s.orario):''}</span></div>`;
       if(s.luogo)h+=`<p class="muted">📍 ${esc(s.luogo)}</p>`;
       if(s.info)h+=`<p class="muted">${esc(s.info)}</p>`;
-      h+=evs.map(eventHtml).join('');
+      h+=evs.filter(e=>!evAfter(e,s)).map(eventHtml).join('');
       for(const x of ps){
         if(!x.on){ if(v.conMoglie)h+=`<p class="muted" style="margin-top:10px">${esc(conLabel(v,x.p))}: nessun appuntamento</p>`; continue; }
         const list=slotBookings(v,day.date,k,x.p),cap=persCap(d,s,x.p),free=cap-list.length;
@@ -634,6 +636,7 @@ function renderHome(){
           if(av.length)h+=`<select style="flex:1;min-width:150px;padding:7px" onchange="if(this.value)openBook('${day.date}','${k}','${x.p}',this.value);this.value=''"><option value="">+ Prenota per…</option>${av.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>`;}
         h+=`</div></div>`;
       }
+      h+=evs.filter(e=>evAfter(e,s)).map(eventHtml).join('');
       h+=`</div>`;
     }
     v.eventi.filter(e=>e.date===day.date&&e.quando==='E').forEach(e=>h+=eventHtml(e));
@@ -906,11 +909,12 @@ function visitText(d,v,withDetails){
       const evs=v.eventi.filter(e=>e.date===day.date&&e.quando===k);
       const ps=persList(v).filter(p=>available(v,day,k,p));
       t+=`${label}${s.orario&&ps.length?' ore '+s.orario:''}${s.luogo&&ps.length?' – '+s.luogo:''}${ps.length||evs.length?'':': nessun appuntamento'}\n`;
-      evs.forEach(e=>t+='  '+evLine(e)+'\n');
+      evs.filter(e=>!evAfter(e,s)).forEach(e=>t+='  '+evLine(e)+'\n');
       for(const p of ps){const list=slotBookings(v,day.date,k,p),cap=persCap(d,s,p),fr=cap-list.length;
         t+=`  ${v.conMoglie?conLabel(v,p):'Appuntamenti'}${fr>0?` [${fr===1?'1 posto libero':fr+' posti liberi'}]`:''}:\n`;
         list.forEach(b=>{const tel=withDetails?userTel(d,b):'';t+=`    • ${userName(d,b)}${tel?' ('+tel+')':''}${withDetails&&detailText(b)?' – '+detailText(b):''}\n`;});
         if(!list.length)t+='    • nessuno\n';}
+      evs.filter(e=>evAfter(e,s)).forEach(e=>t+='  '+evLine(e)+'\n');
     }
     v.eventi.filter(e=>e.date===day.date&&e.quando==='E').forEach(e=>t+='Sera: '+evLine(e)+'\n');
   }
@@ -961,8 +965,10 @@ function pdfColumn(d,v,p){ // righe del riquadro di una persona
     v.eventi.filter(e=>e.date===day.date&&e.quando==='G'&&(e.chi||[]).includes(p)).forEach(e=>{L.push({t:'ev',s:`Tutto il giorno: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
     for(const[k,label]of SLOTS){
       const s=day.slots[k]||{}, ev=v.eventi.filter(e=>e.date===day.date&&e.quando===k&&(e.chi||[]).includes(p));
-      ev.forEach(e=>{L.push({t:'ev',s:`${label}: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
-      if(!available(v,day,k,p))continue;
+      const evL=e=>({t:'ev',s:`${label}: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});
+      const av=available(v,day,k,p);
+      ev.filter(e=>!av||!evAfter(e,s)).forEach(e=>{L.push(evL(e));n++;});
+      if(!av)continue;
       L.push({t:'slot',s:`${label}${s.orario?' ore '+s.orario:''}${s.luogo?' - '+s.luogo:''}`});n++;
       const list=slotBookings(v,day.date,k,p);
       if(!list.length)L.push({t:'none',s:'nessun appuntamento'});
@@ -972,6 +978,7 @@ function pdfColumn(d,v,p){ // righe del riquadro di una persona
         (b.studi||[]).forEach(x=>L.push({t:'sub',s:`Studio: ${x.pub}${x.lez?', lezione '+x.lez:''}${x.par?', paragrafo '+x.par:''}`}));
         if(b.note)L.push({t:'sub',s:'Note: '+b.note});
       });
+      ev.filter(e=>evAfter(e,s)).forEach(e=>{L.push(evL(e));n++;});
     }
     v.eventi.filter(e=>e.date===day.date&&e.quando==='E'&&(e.chi||[]).includes(p)).forEach(e=>{L.push({t:'ev',s:`Sera: ${evTitle(e)}${e.orario?' ore '+e.orario:''}${e.luogo?' - '+e.luogo:''}`});n++;});
     if(!n)L.push({t:'none',s:'nessun appuntamento'});
