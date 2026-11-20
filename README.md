@@ -21,7 +21,7 @@ App per prenotare le uscite in servizio con il sorvegliante di circoscrizione du
 - **Riepilogo**: programma completo con eventi, telefoni, motivi e studi, e **PDF degli appuntamenti** in una pagina A4 verticale (un riquadro per il sorvegliante e uno per la moglie) da scaricare, stampare o condividere, da copiare o mandare su WhatsApp al sorvegliante. Mostra anche chi non ha ancora prenotato
 - **Visite**: dati del sorvegliante e della moglie (nome e telefono), apertura e chiusura delle prenotazioni, creazione di una **nuova visita**. La precedente va nello storico; può copiare orari, luoghi ed eventi
 - **Storico**: tutte le visite passate, le uscite di ogni fratello ed export in Excel (CSV)
-- **Impostazioni**: link di invito, numero di appuntamenti predefinito, uscite massime per fratello, password, token GitHub
+- **Impostazioni**: notifiche WhatsApp all'amministratore (tramite il servizio gratuito CallMeBot) per ogni prenotazione, modifica o annullamento; link di invito, numero di appuntamenti predefinito, uscite massime per fratello, password, token GitHub
 
 ## Installazione come app sul telefono
 
@@ -36,7 +36,7 @@ L'app installata si apre a schermo intero e legge sempre i dati aggiornati.
 
 Funziona come *Gruppi di servizio*: tutti i dati stanno in `dati.json`, **cifrati** (AES-GCM, chiave ricavata dalla password con PBKDF2). Senza la password il file è illeggibile, anche se il repository è pubblico. Anche il token GitHub che serve per salvare è cifrato nello stesso file.
 
-Ogni fratello si identifica con nome + PIN personale. Se due prenotano l'ultimo posto nello stesso istante, GitHub accetta solo il primo e l'altro riceve "Posti esauriti".
+Ogni salvataggio crea una modifica nel repository con una descrizione generica, senza nomi. Ogni fratello si identifica con nome + PIN personale. Se due prenotano l'ultimo posto nello stesso istante, GitHub accetta solo il primo e l'altro riceve "Posti esauriti".
 
 ## Pubblicazione (una volta sola)
 

@@ -250,7 +250,7 @@ async function putFile(file,sha,msg,token){
   if(S.demo){const cur=lsGet(LS_DEMO);if(cur&&sha!==String(cur.v)){const e=new Error('conflict');e.status=409;throw e;}
     const v=(cur?cur.v:0)+1;lsSet(LS_DEMO,{v,file});return String(v);}
   const t=token||S.token;
-  const body={message:msg,branch:S.gh.branch,content:toB64(te.encode(JSON.stringify(file)))};if(sha)body.sha=sha;
+  const body={message:'Aggiornamento dati (cifrati)',branch:S.gh.branch,content:toB64(te.encode(JSON.stringify(file)))};if(sha)body.sha=sha;
   const r=await fetch(apiUrl(),{method:'PUT',headers:Object.assign(ghH({'Content-Type':'application/json'}),{Authorization:'Bearer '+t}),body:JSON.stringify(body)});
   if(!r.ok)throw await httpErr(r);
   const j=await r.json(); S.etag=null; return j.content.sha;
@@ -461,6 +461,23 @@ async function doLogin(){
 }
 function logout(){if(!unsavedOk())return;S.ses=null;lsSet(LS_SES,null);S.user=null;S.view='home';S.draftDays=null;render();}
 
+
+/* ---------- notifiche WhatsApp all'amministratore (CallMeBot) ---------- */
+function callMeBot(n,text){
+  const url=`https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(n.phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(n.apikey)}`;
+  try{fetch(url,{mode:'no-cors',cache:'no-store',keepalive:true}).catch(()=>{});}catch{}
+}
+function notifyAdmin(kind,b){
+  const n=S.data?.settings?.notify; if(!n||!n.on||!n.phone||!n.apikey)return;
+  if(n.uid&&S.user&&S.user.id===n.uid)return; // le tue prenotazioni non ti vengono notificate
+  const v=V(); if(!v||!b)return;
+  const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{};
+  const head={new:'📅 *Nuova prenotazione*',edit:'✏️ *Prenotazione modificata*',del:'❌ *Prenotazione annullata*'}[kind];
+  let t=`${head}\n${b.userName||userName(S.data,b)}${b.tel?' – '+b.tel:''}\n${fmtDay(b.date)} · ${slotName(b.slot)}${s.orario?' ore '+s.orario:''}\n${conLabel(v,b.con)}`;
+  if(kind!=='del'&&detailText(b))t+=`\n${detailText(b)}`;
+  if(S.user&&b.userId!==S.user.id)t+=`\n(inserita da ${S.user.name})`;
+  callMeBot(n,t);
+}
 /* ---------- regole di prenotazione ---------- */
 function canBook(d,userId,date,k,p,asAdmin){
   const v=V(d); if(!v)return'Nessuna visita attiva';
@@ -482,7 +499,7 @@ async function unbook(id){
     const vv=V(d),i=vv.bookings.findIndex(x=>x.id===id); if(i<0)return'Prenotazione già annullata';
     if(!S.user.admin&&!vv.aperto)return'Le prenotazioni sono chiuse: contatta l\'amministratore';
     vv.bookings.splice(i,1);
-  })){closeSheet();toast('Prenotazione annullata');}
+  })){closeSheet();toast('Prenotazione annullata');notifyAdmin('del',b);}
 }
 
 /* ---------- modulo di prenotazione (con chi, motivo, studi biblici, telefono) ---------- */
@@ -560,7 +577,8 @@ async function shSave(){
       const u=d.users.find(x=>x.id===b.userId); if(u)u.tel=tel;
     });
   }
-  if(ok){closeSheet();toast(sh.mode==='new'?'Prenotazione confermata ✓':'Modifiche salvate ✓');}
+  if(ok){closeSheet();toast(sh.mode==='new'?'Prenotazione confermata ✓':'Modifiche salvate ✓');
+    const nb=V().bookings.filter(x=>x.userId===sh.userId&&x.date===sh.date&&x.slot===sh.k).pop(); if(nb)notifyAdmin(sh.mode==='new'?'new':'edit',nb);}
   else if(sh.mode==='new'&&S.data&&canBook(S.data,sh.userId,sh.date,sh.k,sh.p,asAdmin))closeSheet();
 }
 function detailHtml(b,withTel){
@@ -1228,6 +1246,17 @@ function admSettings(){
     <p class="muted">Telefono, motivi, studi biblici e note li vedono solo chi ha prenotato e gli amministratori.</p>
     <label>Indirizzo dei dati dell'app Gruppi di servizio</label><input id="st_gurl" value="${esc(st.gruppiUrl)}" autocapitalize="off">
     <button class="btn full" onclick="saveSettings()">Salva</button></div>
+  <div class="card"><h2>Notifiche WhatsApp</h2>
+    <p class="muted">Ricevi un messaggio WhatsApp quando qualcuno prenota, modifica o annulla un appuntamento. Usa il servizio gratuito <b>CallMeBot</b>, che può scrivere solo al tuo numero.</p>
+    <ol class="steps" style="font-size:14px">
+      <li>Apri <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com → Free WhatsApp API</a> e salva nei contatti il numero del bot indicato nella pagina</li>
+      <li>Manda a quel contatto su WhatsApp il messaggio: <b>I allow callmebot to send me messages</b></li>
+      <li>Il bot ti risponde con la tua <b>APIKEY</b>: scrivila qui sotto insieme al tuo numero</li></ol>
+    <label>Il tuo numero WhatsApp (con +39)</label><input id="nt_phone" type="tel" value="${esc(st.notify?.phone||'')}" placeholder="+39 333 1234567">
+    <label>APIKEY ricevuta dal bot</label><input id="nt_key" value="${esc(st.notify?.apikey||'')}" inputmode="numeric" autocapitalize="off">
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="nt_on" ${st.notify?.on?'checked':''}> Notifiche attive</label>
+    <p class="muted">Le prenotazioni che fai tu non ti vengono notificate.</p>
+    <div class="actions"><button class="btn sm" onclick="saveNotify()">Salva</button><button class="btn sm sec" onclick="testNotify()">Invia messaggio di prova</button></div></div>
   <div class="card"><h2>Password della congregazione</h2>
     <p class="muted">Dopo il cambio, tutti dovranno inserire la nuova password (o aprire il nuovo link di invito).</p>
     <label>Password attuale</label><input id="pw_old" type="password">
@@ -1242,6 +1271,11 @@ function admSettings(){
     <button class="btn sec full" onclick="downloadBackup()">Scarica un backup dei dati (non cifrato)</button>
     ${S.demo?'<button class="btn danger full" onclick="exitDemo()">Esci dalla demo e cancella i dati di prova</button>':'<button class="btn danger full" onclick="forgetDevice()">Dimentica la password su questo dispositivo</button>'}</div>`;
 }
+function ntVals(){const phone='+'+waNum($('#nt_phone').value);return{phone,apikey:$('#nt_key').value.trim(),on:$('#nt_on').checked,uid:S.user.id};}
+async function saveNotify(){const n=ntVals();if(n.on&&(!telOk(n.phone)||!n.apikey))return toast('Inserisci numero e APIKEY','err');
+  if(await mutate('Notifiche',d=>{d.settings.notify=n;}))toast(n.on?'Notifiche attive ✓':'Notifiche disattivate');}
+function testNotify(){const n=ntVals();if(!telOk(n.phone)||!n.apikey)return toast('Inserisci numero e APIKEY','err');
+  callMeBot(n,'✅ Prova: le notifiche dell\'app '+(S.data.settings.titolo||'Visita del sorvegliante')+' funzionano.');toast('Messaggio di prova inviato: controlla WhatsApp tra qualche secondo');}
 async function saveSettings(){
   const v={titolo:$('#st_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#st_cong').value.trim(),
     capDefault:Math.max(1,Math.min(20,parseInt($('#st_cap').value)||1)),capMoglie:Math.max(1,Math.min(20,parseInt($('#st_capm').value)||1)),maxPerUser:Math.max(0,Math.min(20,parseInt($('#st_max').value)||0)),
