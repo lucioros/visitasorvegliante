@@ -21,7 +21,7 @@ App per prenotare le uscite in servizio con il sorvegliante di circoscrizione du
 - **Riepilogo**: programma completo con eventi, telefoni, motivi e studi, e **PDF degli appuntamenti** in una pagina A4 verticale (un riquadro per il sorvegliante e uno per la moglie) da scaricare, stampare o condividere, da copiare o mandare su WhatsApp al sorvegliante. Mostra anche chi non ha ancora prenotato
 - **Visite**: dati del sorvegliante e della moglie (nome e telefono), apertura e chiusura delle prenotazioni, creazione di una **nuova visita**. La precedente va nello storico; può copiare orari, luoghi ed eventi
 - **Storico**: tutte le visite passate, le uscite di ogni fratello ed export in Excel (CSV)
-- **Impostazioni**: notifiche WhatsApp all'amministratore (tramite il servizio gratuito CallMeBot) per ogni prenotazione, modifica o annullamento; link di invito, numero di appuntamenti predefinito, uscite massime per fratello, password, token GitHub
+- **Impostazioni**: notifiche all'amministratore su Telegram (con un bot personale creato con @BotFather) e/o WhatsApp (tramite il servizio gratuito CallMeBot) per ogni prenotazione, modifica o annullamento; link di invito, numero di appuntamenti predefinito, uscite massime per fratello, password, token GitHub
 
 ## Installazione come app sul telefono
 

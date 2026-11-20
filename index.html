@@ -468,15 +468,25 @@ function callMeBot(n,text){
   try{fetch(url,{mode:'no-cors',cache:'no-store',keepalive:true}).catch(()=>{});}catch{}
 }
 function notifyAdmin(kind,b){
-  const n=S.data?.settings?.notify; if(!n||!n.on||!n.phone||!n.apikey)return;
-  if(n.uid&&S.user&&S.user.id===n.uid)return; // le tue prenotazioni non ti vengono notificate
+  const st=S.data?.settings||{}, n=st.notify, g=st.notifyTg;
+  const act=x=>x&&x.on; if(!act(n)&&!act(g))return;
+  const owner=(act(g)&&g.uid)||(act(n)&&n.uid); if(owner&&S.user&&S.user.id===owner)return; // le tue prenotazioni non ti vengono notificate
   const v=V(); if(!v||!b)return;
   const s=v.days.find(x=>x.date===b.date)?.slots?.[b.slot]||{};
   const head={new:'📅 *Nuova prenotazione*',edit:'✏️ *Prenotazione modificata*',del:'❌ *Prenotazione annullata*'}[kind];
   let t=`${head}\n${b.userName||userName(S.data,b)}${b.tel?' – '+b.tel:''}\n${fmtDay(b.date)} · ${slotName(b.slot)}${s.orario?' ore '+s.orario:''}\n${conLabel(v,b.con)}`;
   if(kind!=='del'&&detailText(b))t+=`\n${detailText(b)}`;
   if(S.user&&b.userId!==S.user.id)t+=`\n(inserita da ${S.user.name})`;
-  callMeBot(n,t);
+  sendNotify(t);
+}
+function tgSend(n,text){
+  const url=`https://api.telegram.org/bot${n.token}/sendMessage?chat_id=${encodeURIComponent(n.chatId)}&text=${encodeURIComponent(text.replace(/\*/g,''))}`;
+  try{fetch(url,{mode:'no-cors',cache:'no-store',keepalive:true}).catch(()=>{});}catch{}
+}
+function sendNotify(t){
+  const st=S.data?.settings||{}, w=st.notify, g=st.notifyTg;
+  if(w&&w.on&&w.phone&&w.apikey)callMeBot(w,t);
+  if(g&&g.on&&g.token&&g.chatId)tgSend(g,t);
 }
 /* ---------- regole di prenotazione ---------- */
 function canBook(d,userId,date,k,p,asAdmin){
@@ -1246,8 +1256,22 @@ function admSettings(){
     <p class="muted">Telefono, motivi, studi biblici e note li vedono solo chi ha prenotato e gli amministratori.</p>
     <label>Indirizzo dei dati dell'app Gruppi di servizio</label><input id="st_gurl" value="${esc(st.gruppiUrl)}" autocapitalize="off">
     <button class="btn full" onclick="saveSettings()">Salva</button></div>
+  <div class="card"><h2>Notifiche Telegram</h2>
+    <p class="muted">Ricevi su Telegram un messaggio quando qualcuno prenota, modifica o annulla un appuntamento. Serve un bot tuo, gratuito, che crei in 2 minuti.</p>
+    <ol class="steps" style="font-size:14px">
+      <li>In Telegram apri <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, scrivi <b>/newbot</b>, scegli un nome (es. <i>Visita sorvegliante</i>) e un nome utente che finisca con <b>bot</b></li>
+      <li>BotFather ti manda il <b>token</b> (tipo <code>123456789:AAE…</code>): copialo qui sotto</li>
+      <li>Tocca il link del tuo nuovo bot che ti ha dato BotFather e premi <b>Avvia</b></li>
+      <li>Torna qui e tocca <b>Trova il mio ID</b></li></ol>
+    <label>Token del bot</label><input id="tg_token" value="${esc(st.notifyTg?.token||'')}" placeholder="123456789:AAE…" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <label>Il tuo ID Telegram</label><input id="tg_chat" value="${esc(st.notifyTg?.chatId||'')}" inputmode="numeric" placeholder="es. 123456789">
+    <div class="actions"><button class="btn sm sec" onclick="tgFindId()">Trova il mio ID</button></div>
+    <p class="muted" id="tg_help" style="display:none">Non riesco a leggerlo in automatico. Apri <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> su Telegram e premi Avvia: ti risponde con il tuo <b>Id</b>. Copialo nel campo qui sopra.</p>
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="tg_on" ${st.notifyTg?.on?'checked':''}> Notifiche Telegram attive</label>
+    <p class="muted">Le prenotazioni che fai tu non ti vengono notificate.</p>
+    <div class="actions"><button class="btn sm" onclick="saveTg()">Salva</button><button class="btn sm sec" onclick="testTg()">Invia messaggio di prova</button></div></div>
   <div class="card"><h2>Notifiche WhatsApp</h2>
-    <p class="muted">Ricevi un messaggio WhatsApp quando qualcuno prenota, modifica o annulla un appuntamento. Usa il servizio gratuito <b>CallMeBot</b>, che può scrivere solo al tuo numero.</p>
+    <p class="muted">Ricevi un messaggio WhatsApp quando qualcuno prenota, modifica o annulla un appuntamento. Usa il servizio gratuito <b>CallMeBot</b>, che può scrivere solo al tuo numero. A volte il loro bot è pieno e bisogna riprovare dopo qualche giorno.</p>
     <ol class="steps" style="font-size:14px">
       <li>Apri <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com → Free WhatsApp API</a> e salva nei contatti il numero del bot indicato nella pagina</li>
       <li>Manda a quel contatto su WhatsApp il messaggio: <b>I allow callmebot to send me messages</b></li>
@@ -1271,6 +1295,27 @@ function admSettings(){
     <button class="btn sec full" onclick="downloadBackup()">Scarica un backup dei dati (non cifrato)</button>
     ${S.demo?'<button class="btn danger full" onclick="exitDemo()">Esci dalla demo e cancella i dati di prova</button>':'<button class="btn danger full" onclick="forgetDevice()">Dimentica la password su questo dispositivo</button>'}</div>`;
 }
+function tgVals(){return{token:$('#tg_token').value.trim(),chatId:$('#tg_chat').value.trim(),on:$('#tg_on').checked,uid:S.user.id};}
+async function tgFindId(){
+  const t=$('#tg_token').value.trim(); if(!/^\d+:[\w-]{20,}$/.test(t))return toast('Incolla prima il token del bot','err');
+  spin(true);
+  try{
+    const r=await fetch(`https://api.telegram.org/bot${t}/getUpdates`,{cache:'no-store'});
+    const j=await r.json();
+    if(!j.ok)throw new Error(j.description||'token');
+    const m=[...(j.result||[])].reverse().map(u=>u.message||u.edited_message).find(x=>x&&x.chat&&x.chat.type==='private');
+    if(!m){toast('Nessun messaggio trovato: apri il tuo bot su Telegram, premi Avvia e riprova','err');return;}
+    $('#tg_chat').value=m.chat.id; $('#tg_on').checked=true;
+    toast(`Trovato: ${m.chat.first_name||''} (ID ${m.chat.id}). Ora tocca Salva`);
+  }catch(e){
+    if(/Unauthorized|Not Found/i.test(e.message))toast('Token non valido: ricontrolla quello di BotFather','err');
+    else{$('#tg_help').style.display='block';toast('Inserisci l\'ID a mano (vedi sotto)','err');}
+  }finally{spin(false);}
+}
+async function saveTg(){const n=tgVals();if(n.on&&(!n.token||!/^-?\d+$/.test(n.chatId)))return toast('Inserisci token e ID','err');
+  if(await mutate('Notifiche',d=>{d.settings.notifyTg=n;}))toast(n.on?'Notifiche Telegram attive ✓':'Notifiche Telegram disattivate');}
+function testTg(){const n=tgVals();if(!n.token||!/^-?\d+$/.test(n.chatId))return toast('Inserisci token e ID','err');
+  tgSend(n,'✅ Prova: le notifiche dell\'app '+(S.data.settings.titolo||'Visita del sorvegliante')+' funzionano.');toast('Messaggio di prova inviato: controlla Telegram');}
 function ntVals(){const phone='+'+waNum($('#nt_phone').value);return{phone,apikey:$('#nt_key').value.trim(),on:$('#nt_on').checked,uid:S.user.id};}
 async function saveNotify(){const n=ntVals();if(n.on&&(!telOk(n.phone)||!n.apikey))return toast('Inserisci numero e APIKEY','err');
   if(await mutate('Notifiche',d=>{d.settings.notify=n;}))toast(n.on?'Notifiche attive ✓':'Notifiche disattivate');}
