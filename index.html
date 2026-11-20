@@ -1270,17 +1270,6 @@ function admSettings(){
     <label class="chk" style="margin-top:12px"><input type="checkbox" id="tg_on" ${st.notifyTg?.on?'checked':''}> Notifiche Telegram attive</label>
     <p class="muted">Le prenotazioni che fai tu non ti vengono notificate.</p>
     <div class="actions"><button class="btn sm" onclick="saveTg()">Salva</button><button class="btn sm sec" onclick="testTg()">Invia messaggio di prova</button></div></div>
-  <div class="card"><h2>Notifiche WhatsApp</h2>
-    <p class="muted">Ricevi un messaggio WhatsApp quando qualcuno prenota, modifica o annulla un appuntamento. Usa il servizio gratuito <b>CallMeBot</b>, che può scrivere solo al tuo numero. A volte il loro bot è pieno e bisogna riprovare dopo qualche giorno.</p>
-    <ol class="steps" style="font-size:14px">
-      <li>Apri <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com → Free WhatsApp API</a> e salva nei contatti il numero del bot indicato nella pagina</li>
-      <li>Manda a quel contatto su WhatsApp il messaggio: <b>I allow callmebot to send me messages</b></li>
-      <li>Il bot ti risponde con la tua <b>APIKEY</b>: scrivila qui sotto insieme al tuo numero</li></ol>
-    <label>Il tuo numero WhatsApp (con +39)</label><input id="nt_phone" type="tel" value="${esc(st.notify?.phone||'')}" placeholder="+39 333 1234567">
-    <label>APIKEY ricevuta dal bot</label><input id="nt_key" value="${esc(st.notify?.apikey||'')}" inputmode="numeric" autocapitalize="off">
-    <label class="chk" style="margin-top:12px"><input type="checkbox" id="nt_on" ${st.notify?.on?'checked':''}> Notifiche attive</label>
-    <p class="muted">Le prenotazioni che fai tu non ti vengono notificate.</p>
-    <div class="actions"><button class="btn sm" onclick="saveNotify()">Salva</button><button class="btn sm sec" onclick="testNotify()">Invia messaggio di prova</button></div></div>
   <div class="card"><h2>Password della congregazione</h2>
     <p class="muted">Dopo il cambio, tutti dovranno inserire la nuova password (o aprire il nuovo link di invito).</p>
     <label>Password attuale</label><input id="pw_old" type="password">
@@ -1316,11 +1305,6 @@ async function saveTg(){const n=tgVals();if(n.on&&(!n.token||!/^-?\d+$/.test(n.c
   if(await mutate('Notifiche',d=>{d.settings.notifyTg=n;}))toast(n.on?'Notifiche Telegram attive ✓':'Notifiche Telegram disattivate');}
 function testTg(){const n=tgVals();if(!n.token||!/^-?\d+$/.test(n.chatId))return toast('Inserisci token e ID','err');
   tgSend(n,'✅ Prova: le notifiche dell\'app '+(S.data.settings.titolo||'Visita del sorvegliante')+' funzionano.');toast('Messaggio di prova inviato: controlla Telegram');}
-function ntVals(){const phone='+'+waNum($('#nt_phone').value);return{phone,apikey:$('#nt_key').value.trim(),on:$('#nt_on').checked,uid:S.user.id};}
-async function saveNotify(){const n=ntVals();if(n.on&&(!telOk(n.phone)||!n.apikey))return toast('Inserisci numero e APIKEY','err');
-  if(await mutate('Notifiche',d=>{d.settings.notify=n;}))toast(n.on?'Notifiche attive ✓':'Notifiche disattivate');}
-function testNotify(){const n=ntVals();if(!telOk(n.phone)||!n.apikey)return toast('Inserisci numero e APIKEY','err');
-  callMeBot(n,'✅ Prova: le notifiche dell\'app '+(S.data.settings.titolo||'Visita del sorvegliante')+' funzionano.');toast('Messaggio di prova inviato: controlla WhatsApp tra qualche secondo');}
 async function saveSettings(){
   const v={titolo:$('#st_tit').value.trim()||'Visita del sorvegliante',congregazione:$('#st_cong').value.trim(),
     capDefault:Math.max(1,Math.min(20,parseInt($('#st_cap').value)||1)),capMoglie:Math.max(1,Math.min(20,parseInt($('#st_capm').value)||1)),maxPerUser:Math.max(0,Math.min(20,parseInt($('#st_max').value)||0)),
