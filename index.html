@@ -259,10 +259,11 @@ function passwordChanged(){ // un altro ha cambiato la password: bisogna rientra
   lsSet(LS_PW,null); S.key=null; S.data=null; S.user=null; renderUnlock('La password della congregazione è stata cambiata. Inserisci quella nuova.');
 }
 /* modifica sicura: rilegge, applica, salva; se due salvano insieme si riprova */
-async function mutate(msg,fn){
+async function mutate(msg,fn,opt){
+  opt=opt||{};
   if(S.busy)return false;
   if(!S.token&&!S.demo){toast('Il salvataggio non è attivo: avvisa l\'amministratore.','err');return false;}
-  S.busy=true; spin(true);
+  S.busy=true; if(!opt.quiet)spin(true);
   try{
     for(let i=0;i<6;i++){
       const rem=await fetchFile(); if(!rem)throw new Error('Archivio non trovato');
@@ -278,7 +279,7 @@ async function mutate(msg,fn){
     }
     throw new Error('Salvataggio non riuscito, riprova.');
   }catch(e){toast(e.message,'err');return false;}
-  finally{S.busy=false;spin(false);if(S.data){resolveUser();render();}}
+  finally{S.busy=false;spin(false);if(S.data){resolveUser();if(!opt.quiet||!S.sheet)render();}}
 }
 async function refresh(silent){
   if(S.busy||!S.key)return;
@@ -496,7 +497,7 @@ function openEdit(id){
 function closeSheet(){S.sheet=null;$('#sheetbg').classList.remove('show');}
 function pubSuggestions(){const set=new Set();S.data.visite.forEach(v=>v.bookings.forEach(b=>(b.studi||[]).forEach(s=>s.pub&&set.add(s.pub.trim()))));return[...set].sort((a,b)=>a.localeCompare(b,'it'));}
 function renderSheet(){
-  const sh=S.sheet; if(!sh)return closeSheet(); if(sh.mode==='info'||sh.mode==='user')return;
+  const sh=S.sheet; if(!sh)return closeSheet(); if(sh.mode==='info'||sh.mode==='user'||sh.mode==='invite')return;
   const v=V(), s=v?.days.find(x=>x.date===sh.date)?.slots?.[sh.k]||{};
   const other=sh.userId!==S.user.id, who=S.data.users.find(u=>u.id===sh.userId)?.name||'';
   const hasStudi=sh.motivi.includes('studi');
@@ -771,7 +772,7 @@ async function delEvent(id){const e=V().eventi.find(x=>x.id===id);if(!e||!confir
 /* --- Fratelli (con importazione da "Gruppi di servizio") --- */
 function admUsers(){
   const d=S.data, v=V(d), users=[...d.users].sort(byName);
-  let h=`<div class="card"><h2>Importa da “Gruppi di servizio”</h2>`;
+  let h=inviteAllCard()+`<div class="card"><h2>Importa da “Gruppi di servizio”</h2>`;
   const im=S.imp;
   if(!im){h+=`<p class="muted">Prende l'elenco dei proclamatori dalla tua app dei gruppi di servizio.</p><button class="btn full" onclick="impStart()">Importa elenco</button>`;}
   else if(im.step==='pw'){h+=`${im.err?`<div class="banner err">${esc(im.err)}</div>`:''}<label>Password dell'app Gruppi di servizio</label>
@@ -787,10 +788,10 @@ function admUsers(){
   }
   h+=`</div>${hgCard()}<div class="card"><h2>Aggiungi a mano</h2><p class="muted">Un nome per riga.</p>
     <textarea id="u_new" placeholder="Rossi Mario&#10;Bianchi Luca"></textarea><button class="btn full" onclick="addUsers()">Aggiungi</button></div>
-    <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN. Il telefono lo inserisce chi prenota, oppure lo aggiungi tu con “Modifica”.</p><div class="list">
+    <div class="card"><h2>Elenco (${users.length})</h2><p class="muted">Al primo accesso ognuno sceglie il proprio PIN. Il telefono lo inserisce chi prenota, oppure lo aggiungi tu dalla “Scheda”, da dove puoi anche mandargli l'invito.</p><div class="list">
     ${users.map(u=>{const n=userBookings(v,u.id).length;return`<div class="it"><div class="grow"><b>${esc(u.name)}</b>${u.admin?' <span class="pill">Amministratore</span>':''}<br>
-      <span class="muted">${u.tel?'📞 '+esc(u.tel)+'<br>':''}${u.gruppo?esc(u.gruppo)+' · ':''}${u.pin?'PIN impostato':'Non ha ancora fatto l\'accesso'}${v?' · '+n+' prenot.':''}</span></div>
-      <div style="display:flex;flex-direction:column;gap:4px"><button class="btn sm sec" onclick="editUser('${u.id}')">Modifica</button>${u.id===S.user.id?'<span class="muted center">(tu)</span>':`
+      <span class="muted">${u.tel?'📞 '+esc(u.tel)+'<br>':''}${u.gruppo?esc(u.gruppo)+' · ':''}${u.pin?'PIN impostato':'Non ha ancora fatto l\'accesso'}${v?' · '+n+' prenot.':''}${u.id!==S.user.id&&!u.pin?'<br>'+invitoText(u):''}</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><button class="btn sm sec" onclick="editUser('${u.id}')">Scheda</button>${u.id===S.user.id?'<span class="muted center">(tu)</span>':`
       ${u.pin?`<button class="btn sm sec" onclick="resetPin('${u.id}')">Azzera PIN</button>`:''}
       <button class="btn sm sec" onclick="toggleAdmin('${u.id}')">${u.admin?'Togli admin':'Rendi admin'}</button>
       <button class="btn sm danger" onclick="delUser('${u.id}')">Elimina</button>`}</div></div>`;}).join('')}</div></div>`;
@@ -868,11 +869,72 @@ async function impDo(){
     if(!n)return'Nessun nuovo nominativo da importare';
   })){S.imp=null;render();toast(`Importati ${n} nominativi ✓`);}
 }
+
+/* --- Inviti personali su WhatsApp o Telegram --- */
+function waNum(tel){let d=String(tel||'').trim().replace(/[^\d+]/g,'');
+  if(d.startsWith('+'))return d.slice(1).replace(/\D/g,'');
+  if(d.startsWith('00'))return d.slice(2);
+  if((d.length===10&&d[0]==='3')||(d[0]==='0'&&d.length>=6&&d.length<=11))return '39'+d;
+  return d;}
+const firstName=u=>u.nome||String(u.name||'').split(' ').slice(-1)[0];
+function personalMsg(u){return `Ciao ${firstName(u)}! `+inviteMsg(inviteLink(true));}
+function waHref(u){return `https://wa.me/${waNum(u.tel)}?text=${encodeURIComponent(personalMsg(u))}`;}
+function tgHref(u){const link=inviteLink(true);return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(personalMsg(u).replace(link,'(link qui sopra)'))}`;}
+const viaName=v=>v==='tg'?'Telegram':'WhatsApp';
+function invitoText(u){return u.invito?`Invitato il ${new Date(u.invito.at).toLocaleDateString('it-IT',{day:'numeric',month:'short'})} (${viaName(u.invito.via)})`:'Non ancora invitato';}
+S.pendInv=[];
+function markInvited(id,via){S.pendInv.push({id,via,at:new Date().toISOString()});const u=S.data.users.find(x=>x.id===id);if(u)u.invito={via,at:new Date().toISOString()};flushInv();}
+async function flushInv(){
+  if(S.invFlushing)return; S.invFlushing=true;
+  try{while(S.pendInv.length){
+    if(S.busy){await sleep(500);continue;}
+    const batch=S.pendInv.splice(0);
+    const ok=await mutate(`Invito inviato (${batch.length})`,d=>{batch.forEach(b=>{const u=d.users.find(x=>x.id===b.id);if(u)u.invito={via:b.via,at:b.at};});},{quiet:true});
+    if(!ok){S.pendInv.unshift(...batch);await sleep(3000);}
+  }}finally{S.invFlushing=false;}
+}
+function inviteButtons(u,after){
+  if(!u.tel)return `<p class="muted">Per mandare l'invito serve il numero di telefono.</p>`;
+  return `<div class="actions"><a class="btn sm ok" href="${esc(waHref(u))}" target="_blank" rel="noopener" onclick="markInvited('${u.id}','wa');${after||''}">WhatsApp</a>
+    <a class="btn sm" style="background:#229ed9" href="${esc(tgHref(u))}" target="_blank" rel="noopener" onclick="markInvited('${u.id}','tg');${after||''}">Telegram</a></div>`;
+}
+function inviteAllCard(){
+  const us=S.data.users.filter(u=>u.id!==S.user.id), todo=us.filter(u=>!u.invito&&u.tel), noTel=us.filter(u=>!u.invito&&!u.tel), done=us.filter(u=>u.invito);
+  return `<div class="card"><h2>Invita i fratelli</h2>
+    <p><b>${done.length}</b> già invitati · <b>${todo.length}</b> da invitare${noTel.length?` · ${noTel.length} senza telefono`:''}</p>
+    <p class="muted">WhatsApp e Telegram non permettono l'invio automatico: per ognuno si apre la chat con il messaggio già scritto, tocchi Invia e torni qui. L'app ti propone subito il successivo.</p>
+    <button class="btn ok full" ${todo.length?'':'disabled'} onclick="inviteAll()">📨 Invia l'invito a tutti (${todo.length})</button>
+    <p class="muted" style="margin-top:8px">Vengono proposti solo quelli non ancora invitati. Per mandarlo di nuovo a qualcuno apri la sua <b>Scheda</b>.</p></div>`;
+}
+function inviteAll(){
+  const list=S.data.users.filter(u=>u.id!==S.user.id&&!u.invito&&u.tel).sort(byName).map(u=>u.id);
+  S.sheet={mode:'invite'}; S.inv={list,i:0,sent:0}; renderInvite();
+}
+function invNext(sent){S.inv.i++;if(sent)S.inv.sent++;setTimeout(renderInvite,400);}
+function renderInvite(){
+  if(!S.sheet||S.sheet.mode!=='invite')return;
+  const q=S.inv, tot=q.list.length;
+  let h=`<h2>Invio degli inviti</h2>`;
+  if(q.i>=tot){h+=`<div class="banner ok">Finito! Inviti mandati: <b>${q.sent}</b> su ${tot}.</div><button class="btn full" onclick="closeSheet();render()">Chiudi</button>`;}
+  else{
+    const u=S.data.users.find(x=>x.id===q.list[q.i]);
+    if(!u){q.i++;return renderInvite();}
+    h+=`<p class="muted">${q.i+1} di ${tot}</p>
+      <div style="height:6px;background:#e4ebf0;border-radius:3px;margin:6px 0 14px"><div style="height:6px;width:${Math.round(q.i/tot*100)}%;background:var(--ok);border-radius:3px"></div></div>
+      <p style="font-size:18px"><b>${esc(u.name)}</b></p><p class="muted">📞 ${esc(u.tel)}</p>
+      ${inviteButtons(u,'invNext(true)')}
+      <button class="btn sec full" onclick="invNext(false)">Salta</button>
+      <button class="btn sec full" onclick="closeSheet();render()">Interrompi (riprendi quando vuoi)</button>`;
+  }
+  $('#sheet').innerHTML=h; $('#sheetbg').classList.add('show');
+}
 function editUser(id){const u=S.data.users.find(x=>x.id===id);if(!u)return;
   S.sheet={mode:'user'};
-  $('#sheet').innerHTML=`<h2>Modifica</h2><label>Nome</label><input id="eu_name" value="${esc(u.name)}">
+  $('#sheet').innerHTML=`<h2>Scheda</h2><label>Nome</label><input id="eu_name" value="${esc(u.name)}">
   <label>Numero di telefono</label><input id="eu_tel" type="tel" inputmode="tel" value="${esc(u.tel||'')}" placeholder="es. 333 1234567">
-  <button class="btn full" onclick="saveUser('${id}')">Salva</button><button class="btn sec full" onclick="closeSheet()">Chiudi</button>`;
+  <button class="btn full" onclick="saveUser('${id}')">Salva</button>
+  ${id!==S.user.id?`<h3 style="margin-top:22px">Invito all'app</h3><p class="muted">${invitoText(u)}</p>${inviteButtons(u,"setTimeout(()=>editUser('"+id+"'),400)")}`:''}
+  <button class="btn sec full" onclick="closeSheet();render()">Chiudi</button>`;
   $('#sheetbg').classList.add('show');}
 async function saveUser(id){const name=$('#eu_name').value.replace(/\s+/g,' ').trim(),tel=$('#eu_tel').value.trim();
   if(!name)return toast('Il nome non può essere vuoto','err');
